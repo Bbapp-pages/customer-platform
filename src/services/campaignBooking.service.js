@@ -1,0 +1,368 @@
+const Campaign = require('../models/Campaign');
+const Participant = require('../models/Participant');
+const Appointment = require('../models/Appointment');
+require('../models/service');
+require('../models/customer');
+
+const { findOrCreateCustomer } = require('../controllers/agenda.controller');
+const {
+  CLINIC_UTC_OFFSET,
+  TOTAL_DAILY_CAP,
+  getBusinessHoursForDate,
+} = require('../config/campaignSchedule.constants');
+
+const ELIGIBLE_STATUSES = ['SELECTED', 'CONTACTED'];
+
+const normalizePhone = (phone) => String(phone || '').replace(/\D/g, '').slice(-10);
+
+// El modelo no siempre devuelve el code exacto (p. ej. "Hollywood Peel" o
+// "hollywood-peel" en vez de "HOLLYWOOD_PEEL"), así que se normaliza a mayúsculas
+// con guion bajo antes de comparar contra Service.code.
+const normalizeServiceCode = (code) =>
+  String(code || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_');
+
+const parseOffsetMinutes = (offset) => {
+  const match = offset.match(/^([+-])(\d{2}):(\d{2})$/);
+  const sign = match[1] === '-' ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3]));
+};
+
+const CLINIC_OFFSET_MINUTES = parseOffsetMinutes(CLINIC_UTC_OFFSET);
+
+const toClinicWallClock = (date) => {
+  const local = new Date(date.getTime() + CLINIC_OFFSET_MINUTES * 60000);
+  const pad = (n) => String(n).padStart(2, '0');
+
+  return {
+    date: `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`,
+    time: `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`,
+  };
+};
+
+const fromClinicWallClock = (dateStr, timeStr) =>
+  new Date(`${dateStr}T${timeStr}:00${CLINIC_UTC_OFFSET}`);
+
+const timeToMinutes = (time) => {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+};
+
+const minutesToTime = (minutes) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const getActiveCampaign = async () => Campaign.findOne({ active: true }).populate('services');
+
+const findParticipantByPhone = async (campaignId, phone) => {
+  const normalized = normalizePhone(phone);
+
+  const participants = await Participant.find({ campaign: campaignId })
+    .populate('prize.service')
+    .populate('appointment');
+
+  return participants.find((p) => normalizePhone(p.phone) === normalized) || null;
+};
+
+const describeAppointment = (appointment) => {
+  if (!appointment) {
+    return null;
+  }
+
+  const { date, time } = toClinicWallClock(appointment.startTime);
+
+  return { id: String(appointment._id), date, time, status: appointment.status };
+};
+
+const listServices = async () => {
+  const campaign = await getActiveCampaign();
+
+  if (!campaign) {
+    return { services: [] };
+  }
+
+  return {
+    services: campaign.services
+      .filter((service) => service.active)
+      .map((service) => ({
+        code: service.code,
+        name: service.name,
+        description: service.description,
+        durationMinutes: service.durationMinutes,
+      })),
+  };
+};
+
+const checkEligibility = async ({ phone }) => {
+  const campaign = await getActiveCampaign();
+
+  if (!campaign) {
+    return { eligible: false, reason: 'no_active_campaign' };
+  }
+
+  const participant = await findParticipantByPhone(campaign._id, phone);
+
+  if (!participant) {
+    return { eligible: false, reason: 'not_a_participant' };
+  }
+
+  const eligible =
+    ELIGIBLE_STATUSES.includes(participant.status) &&
+    participant.prize.status === 'AVAILABLE';
+
+  return {
+    eligible,
+    reason: eligible ? null : `status_${participant.status}_prize_${participant.prize.status}`,
+    participant: { id: String(participant._id), name: participant.name, status: participant.status },
+    service: participant.prize.service
+      ? { code: participant.prize.service.code, name: participant.prize.service.name }
+      : null,
+    prizeStatus: participant.prize.status,
+    existingAppointment: describeAppointment(participant.appointment),
+  };
+};
+
+// Los cupos diarios (20/servicio, 40 total) son mayores que la cantidad de
+// franjas de 30 min disponibles en el día, así que varios pacientes SÍ
+// comparten la misma franja horaria a propósito (varios profesionales en
+// paralelo) — el cupo es únicamente por día, nunca por franja individual.
+const getAvailableSlots = async ({ serviceCode, date, excludeAppointmentId }) => {
+  const campaign = await getActiveCampaign();
+
+  if (!campaign) {
+    return { available: false, slots: [], reason: 'no_active_campaign' };
+  }
+
+  const service = campaign.services.find(
+    (s) => s.code === normalizeServiceCode(serviceCode)
+  );
+
+  if (!service) {
+    return { available: false, slots: [], reason: 'service_not_in_campaign' };
+  }
+
+  const dayStart = fromClinicWallClock(date, '00:00');
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const filter = {
+    startTime: { $gte: dayStart, $lt: dayEnd },
+    status: { $ne: 'cancelled' },
+  };
+
+  if (excludeAppointmentId) {
+    filter._id = { $ne: excludeAppointmentId };
+  }
+
+  const campaignServiceIds = campaign.services.map((s) => String(s._id));
+  const dayAppointments = (await Appointment.find(filter)).filter((a) =>
+    campaignServiceIds.includes(String(a.service))
+  );
+
+  const totalCount = dayAppointments.length;
+  const serviceCount = dayAppointments.filter(
+    (a) => String(a.service) === String(service._id)
+  ).length;
+
+  if (totalCount >= TOTAL_DAILY_CAP) {
+    return { available: false, slots: [], reason: 'day_full' };
+  }
+
+  if (serviceCount >= service.dailyLimit) {
+    return { available: false, slots: [], reason: 'service_full' };
+  }
+
+  const now = toClinicWallClock(new Date());
+  const slots = [];
+
+  for (const window of getBusinessHoursForDate(date)) {
+    const startMin = timeToMinutes(window.start);
+    const endMin = timeToMinutes(window.end);
+
+    for (let t = startMin; t + service.durationMinutes <= endMin; t += service.durationMinutes) {
+      const slotTime = minutesToTime(t);
+
+      if (date === now.date && slotTime <= now.time) {
+        continue;
+      }
+
+      slots.push(slotTime);
+    }
+  }
+
+  return {
+    available: slots.length > 0,
+    slots,
+    remainingCapacity: Math.min(
+      service.dailyLimit - serviceCount,
+      TOTAL_DAILY_CAP - totalCount
+    ),
+    service: { code: service.code, name: service.name },
+  };
+};
+
+const bookAppointment = async ({ phone, name, serviceCode, date, time }) => {
+  const eligibility = await checkEligibility({ phone });
+
+  if (!eligibility.eligible) {
+    return {
+      success: false,
+      error: 'not_eligible',
+      message: 'Este número no tiene un beneficio disponible para agendar.',
+    };
+  }
+
+  if (eligibility.existingAppointment && eligibility.existingAppointment.status !== 'cancelled') {
+    return {
+      success: false,
+      error: 'already_scheduled',
+      message: 'Este beneficio ya tiene una cita agendada.',
+    };
+  }
+
+  if (!eligibility.service) {
+    return {
+      success: false,
+      error: 'no_prize_service',
+      message: 'Este participante no tiene un servicio asignado como beneficio.',
+    };
+  }
+
+  if (eligibility.service.code !== normalizeServiceCode(serviceCode)) {
+    return {
+      success: false,
+      error: 'wrong_service',
+      message: `El beneficio de este participante es para ${eligibility.service.name}.`,
+    };
+  }
+
+  const slotsResult = await getAvailableSlots({ serviceCode, date });
+
+  if (!slotsResult.slots.includes(time)) {
+    return {
+      success: false,
+      error: 'slot_unavailable',
+      message: 'Ese horario ya no está disponible.',
+    };
+  }
+
+  const campaign = await getActiveCampaign();
+  const service = campaign.services.find((s) => s.code === eligibility.service.code);
+  const participant = await findParticipantByPhone(campaign._id, phone);
+
+  const customer = await findOrCreateCustomer({ phone, name: name || participant.name });
+
+  const startTime = fromClinicWallClock(date, time);
+  const endTime = new Date(startTime.getTime() + service.durationMinutes * 60000);
+
+  const appointment = await Appointment.create({
+    customer: customer._id,
+    service: service._id,
+    startTime,
+    endTime,
+    status: 'confirmed',
+    notes: campaign.name,
+  });
+
+  participant.status = 'SCHEDULED';
+  participant.prize.status = 'SCHEDULED';
+  participant.appointment = appointment._id;
+  await participant.save();
+
+  return {
+    success: true,
+    appointment: { id: String(appointment._id), date, time, service: service.name },
+    message: `Cita confirmada para ${service.name} el ${date} a las ${time}.`,
+  };
+};
+
+const cancelAppointment = async ({ phone }) => {
+  const campaign = await getActiveCampaign();
+
+  if (!campaign) {
+    return { success: false, error: 'no_active_campaign', message: 'No hay campaña activa.' };
+  }
+
+  const participant = await findParticipantByPhone(campaign._id, phone);
+
+  if (!participant || !participant.appointment || participant.appointment.status === 'cancelled') {
+    return { success: false, error: 'no_appointment', message: 'No encontré una cita activa para este número.' };
+  }
+
+  participant.appointment.status = 'cancelled';
+  await participant.appointment.save();
+
+  participant.status = 'CANCELLED';
+  participant.prize.status = 'EXPIRED';
+  await participant.save();
+
+  return {
+    success: true,
+    forfeited: true,
+    message: 'La cita fue cancelada. Este beneficio queda perdido y no puede reprogramarse.',
+  };
+};
+
+const rescheduleAppointment = async ({ phone, date, time }) => {
+  const campaign = await getActiveCampaign();
+
+  if (!campaign) {
+    return { success: false, error: 'no_active_campaign', message: 'No hay campaña activa.' };
+  }
+
+  const participant = await findParticipantByPhone(campaign._id, phone);
+
+  if (!participant || !participant.appointment) {
+    return { success: false, error: 'no_appointment', message: 'No encontré una cita activa para este número.' };
+  }
+
+  if (participant.prize.status !== 'SCHEDULED') {
+    return {
+      success: false,
+      error: 'benefit_forfeited',
+      message: 'Este beneficio ya no puede reprogramarse.',
+    };
+  }
+
+  const serviceCode = participant.prize.service.code;
+
+  const slotsResult = await getAvailableSlots({
+    serviceCode,
+    date,
+    excludeAppointmentId: participant.appointment._id,
+  });
+
+  if (!slotsResult.slots.includes(time)) {
+    return {
+      success: false,
+      error: 'slot_unavailable',
+      message: 'Ese horario no está disponible.',
+    };
+  }
+
+  const service = campaign.services.find((s) => s.code === serviceCode);
+  const startTime = fromClinicWallClock(date, time);
+  const endTime = new Date(startTime.getTime() + service.durationMinutes * 60000);
+
+  participant.appointment.startTime = startTime;
+  participant.appointment.endTime = endTime;
+  await participant.appointment.save();
+
+  return {
+    success: true,
+    appointment: { date, time, service: service.name },
+    message: `Cita reprogramada para el ${date} a las ${time}.`,
+  };
+};
+
+module.exports = {
+  listServices,
+  checkEligibility,
+  getAvailableSlots,
+  bookAppointment,
+  cancelAppointment,
+  rescheduleAppointment,
+};
