@@ -12,6 +12,8 @@ router.get('/appointments', adminController.getAppointments);
 router.get('/participants', adminController.getParticipants);
 router.get('/campaigns', adminController.getCampaigns);
 router.patch('/participants/:id', adminController.updateParticipantStatus);
+router.post('/participants/:id/contact-now', adminController.contactParticipantNow);
+router.delete('/participants/:id', adminController.deleteParticipant);
 router.get('/logs', adminController.getLogs);
 router.get('/conversations', adminController.getConversations);
 router.get('/conversations/:id/messages', adminController.getConversationMessages);

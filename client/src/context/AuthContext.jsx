@@ -30,13 +30,21 @@ export function AuthProvider({ children }) {
     setAdmin(loggedAdmin);
   };
 
+  const register = async (name, email, password, code) => {
+    const res = await api.post('/auth/register', { name, email, password, code });
+    const { token, admin: newAdmin } = res.data.data;
+
+    localStorage.setItem('adminToken', token);
+    setAdmin(newAdmin);
+  };
+
   const logout = () => {
     localStorage.removeItem('adminToken');
     setAdmin(null);
   };
 
   return (
-    <AuthContext.Provider value={{ admin, loading, login, logout }}>
+    <AuthContext.Provider value={{ admin, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -25,6 +25,8 @@
 
     twilioContactTemplateSid: process.env.TWILIO_CONTACT_TEMPLATE_SID,
 
+    twilioFeedbackTemplateSid: process.env.TWILIO_FEEDBACK_TEMPLATE_SID,
+
     resendApiKey: process.env.RESEND_API_KEY,
 
     emailFrom: process.env.EMAIL_FROM || 'onboarding@resend.dev',
@@ -41,6 +43,8 @@
     adminSeedEmail: process.env.ADMIN_SEED_EMAIL,
 
     adminSeedPassword: process.env.ADMIN_SEED_PASSWORD,
+
+    adminSignupCode: process.env.ADMIN_SIGNUP_CODE,
     };
 
     module.exports = env;

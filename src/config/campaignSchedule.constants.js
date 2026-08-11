@@ -8,7 +8,12 @@ const CLINIC_NAME = 'MÁS SALUD';
 // TODO: reemplazar con la dirección real de la clínica.
 const CLINIC_ADDRESS = 'Costa Rica, Uruca, 250 mts este del Hotel Irazu';
 
-const CLINIC_WEBSITE = 'https://www.massaludlatam.com/';
+const CLINIC_WEBSITE = 'https://mssocios.com/product-category/todos-los-productos/';
+
+// Número al que se redirige a un cliente cuando: (1) tuvo una mala experiencia
+// en su cita y necesita contarlo, o (2) ya usó su beneficio gratuito y quiere
+// agendar una cita nueva pagada — el bot no gestiona ninguno de esos dos casos.
+const CLINIC_SUPPORT_PHONE = '+506 6119 0181';
 
 const SCHEDULE_CUTOVER_DATE = '2026-08-16';
 
@@ -54,6 +59,7 @@ module.exports = {
   CLINIC_NAME,
   CLINIC_ADDRESS,
   CLINIC_WEBSITE,
+  CLINIC_SUPPORT_PHONE,
   SCHEDULE_CUTOVER_DATE,
   TOTAL_DAILY_CAP,
   getCampaignContactHours,

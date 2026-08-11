@@ -22,6 +22,19 @@ export default function Participants() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState(null);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  const toggleMenu = (e, participantId) => {
+    if (menuOpenId === participantId) {
+      setMenuOpenId(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPosition({ top: rect.bottom + 4, left: rect.right - 192 });
+    setMenuOpenId(participantId);
+  };
 
   const loadParticipants = () => {
     setLoading(true);
@@ -66,6 +79,46 @@ export default function Participants() {
     } catch (err) {
       window.alert(
         err.response?.data?.message || 'No se pudo actualizar el estado'
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleContactNow = async (participant) => {
+    setMenuOpenId(null);
+    setUpdatingId(participant._id);
+
+    try {
+      await api.post(`/admin/participants/${participant._id}/contact-now`);
+      await loadParticipants();
+    } catch (err) {
+      window.alert(
+        err.response?.data?.message || 'No se pudo enviar el mensaje'
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDelete = async (participant) => {
+    setMenuOpenId(null);
+
+    const confirmed = window.confirm(
+      `¿Seguro que quieres eliminar a ${participant.name}? Esto borra su registro y su cita (si tiene) de forma permanente y no se puede deshacer.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setUpdatingId(participant._id);
+
+    try {
+      await api.delete(`/admin/participants/${participant._id}`);
+      await loadParticipants();
+    } catch (err) {
+      window.alert(
+        err.response?.data?.message || 'No se pudo eliminar el participante'
       );
     } finally {
       setUpdatingId(null);
@@ -131,13 +184,14 @@ export default function Participants() {
               <th className="px-4 py-3 font-medium">Campaña</th>
               <th className="px-4 py-3 font-medium">Premio</th>
               <th className="px-4 py-3 font-medium">Estado</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {!loading && participants.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-4 py-6 text-center"
                   style={{ color: 'var(--ink-muted)' }}
                 >
@@ -177,6 +231,52 @@ export default function Participants() {
                       </option>
                     ))}
                   </select>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    onClick={(e) => toggleMenu(e, participant._id)}
+                    className="rounded-lg border px-2 py-1 text-xs font-medium"
+                    style={{ borderColor: 'var(--border)', color: 'var(--ink-secondary)' }}
+                  >
+                    Opciones ▾
+                  </button>
+
+                  {menuOpenId === participant._id && menuPosition && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
+                      <div
+                        className="fixed z-20 w-48 rounded-lg border py-1 text-left shadow-lg"
+                        style={{
+                          top: menuPosition.top,
+                          left: menuPosition.left,
+                          background: 'var(--surface)',
+                          borderColor: 'var(--border)',
+                        }}
+                      >
+                        {participant.status === 'SELECTED' && !participant.contactedAt && (
+                          <button
+                            type="button"
+                            disabled={updatingId === participant._id}
+                            onClick={() => handleContactNow(participant)}
+                            className="block w-full px-3 py-2 text-left text-xs font-medium disabled:opacity-50"
+                            style={{ color: 'var(--accent)' }}
+                          >
+                            Contactar ahora
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={updatingId === participant._id}
+                          onClick={() => handleDelete(participant)}
+                          className="block w-full px-3 py-2 text-left text-xs font-medium disabled:opacity-50"
+                          style={{ color: '#dc2626' }}
+                        >
+                          Eliminar participante
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

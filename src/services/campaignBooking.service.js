@@ -357,6 +357,113 @@ const rescheduleAppointment = async ({ phone, date, time }) => {
   };
 };
 
+// Ya no existe un formulario web para el registro — el cliente da sus datos
+// por chat y el servicio se asigna al azar entre los activos de la campaña.
+// A propósito NO se revela aquí cuál le tocó: eso se anuncia después, en el
+// contacto proactivo (campaignFollowUp.job.js ya usa el nombre del servicio
+// asignado en su mensaje).
+const registerParticipantViaChat = async ({ phone, name, documentId, email }) => {
+  const campaign = await getActiveCampaign();
+
+  if (!campaign) {
+    return { success: false, error: 'no_active_campaign', message: 'No hay campaña activa en este momento.' };
+  }
+
+  const existingByPhone = await findParticipantByPhone(campaign._id, phone);
+  if (existingByPhone) {
+    return { success: false, error: 'already_registered', message: 'Este número ya está registrado en la campaña.' };
+  }
+
+  const existingByDocument = await Participant.findOne({ campaign: campaign._id, documentId });
+  if (existingByDocument) {
+    return { success: false, error: 'already_registered', message: 'Ese documento ya está registrado en la campaña.' };
+  }
+
+  const activeServices = campaign.services.filter((service) => service.active);
+  if (activeServices.length === 0) {
+    return { success: false, error: 'no_services', message: 'La campaña no tiene servicios disponibles.' };
+  }
+
+  const service = activeServices[Math.floor(Math.random() * activeServices.length)];
+
+  const participant = await Participant.create({
+    name,
+    documentId,
+    phone,
+    email,
+    campaign: campaign._id,
+    status: 'SELECTED',
+    prize: { service: service._id, status: 'AVAILABLE' },
+    selectedAt: new Date(),
+  });
+
+  notificationService
+    .sendRegistrationThankYou({
+      to: email,
+      customerName: name,
+      serviceNames: activeServices.map((s) => s.name),
+    })
+    .catch((error) => {
+      console.error('Registration thank-you email error:', error);
+      systemLogService.logError({
+        type: 'email_send',
+        message: error.message,
+        meta: { participantId: String(participant._id) },
+      });
+    });
+
+  return { success: true };
+};
+
+const findAppointmentAwaitingFeedback = async (phone) => {
+  const normalized = normalizePhone(phone);
+
+  const appointments = await Appointment.find({
+    feedbackRequestedAt: { $ne: null },
+    feedbackResult: null,
+  })
+    .sort({ endTime: -1 })
+    .populate('customer', 'name phone')
+    .populate('service', 'name');
+
+  return (
+    appointments.find((appointment) => normalizePhone(appointment.customer?.phone) === normalized) ||
+    null
+  );
+};
+
+const findPendingFeedbackSummary = async ({ phone }) => {
+  const appointment = await findAppointmentAwaitingFeedback(phone);
+
+  if (!appointment) {
+    return null;
+  }
+
+  return {
+    serviceName: appointment.service?.name || 'tu tratamiento',
+    date: toClinicWallClock(appointment.startTime).date,
+  };
+};
+
+const recordAppointmentFeedback = async ({ phone, result, comment }) => {
+  const appointment = await findAppointmentAwaitingFeedback(phone);
+
+  if (!appointment) {
+    return {
+      success: false,
+      error: 'no_pending_feedback',
+      message: 'No encontré una cita reciente de este número pendiente de retroalimentación.',
+    };
+  }
+
+  appointment.feedbackResult = result;
+  appointment.feedbackComment = comment || '';
+  appointment.feedbackReceivedAt = new Date();
+  await appointment.save();
+
+  return { success: true, result };
+};
+
 module.exports = {
   getActiveCampaign,
   listServices,
@@ -365,4 +472,7 @@ module.exports = {
   bookAppointment,
   cancelAppointment,
   rescheduleAppointment,
+  registerParticipantViaChat,
+  findPendingFeedbackSummary,
+  recordAppointmentFeedback,
 };

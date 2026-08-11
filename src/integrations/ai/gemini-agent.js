@@ -5,7 +5,11 @@ const { GoogleGenAI, createPartFromFunctionResponse } = require('@google/genai')
 
 const env = require('../../config/env');
 const campaignBooking = require('../../services/campaignBooking.service');
-const { CLINIC_UTC_OFFSET } = require('../../config/campaignSchedule.constants');
+const {
+  CLINIC_UTC_OFFSET,
+  CLINIC_WEBSITE,
+  CLINIC_SUPPORT_PHONE,
+} = require('../../config/campaignSchedule.constants');
 const { toClinicWallClock, addClinicDays } = require('../../utils/clinicTime');
 
 const MAX_TOOL_ROUNDTRIPS = 5;
@@ -85,6 +89,37 @@ const TOOLS = [
     },
     handler: ({ date, time, phone }) => campaignBooking.rescheduleAppointment({ phone, date, time }),
   },
+  {
+    name: 'record_appointment_feedback',
+    description:
+      'Registra la retroalimentación de una cita ya realizada, cuando el cliente cuenta cómo le fue. Llámala siempre que el cliente responda a la pregunta de retroalimentación.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        result: { type: 'string', enum: ['positive', 'negative'] },
+        comment: { type: 'string', description: 'Lo que el cliente contó, en sus palabras' },
+      },
+      required: ['result'],
+    },
+    handler: ({ result, comment, phone }) =>
+      campaignBooking.recordAppointmentFeedback({ phone, result, comment }),
+  },
+  {
+    name: 'register_participant',
+    description:
+      'Registra a un cliente nuevo en la campaña activa. Solo llámala cuando ya tengas su nombre completo, número de documento de identidad y correo electrónico — nunca con datos incompletos o inventados.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        documentId: { type: 'string' },
+        email: { type: 'string' },
+      },
+      required: ['name', 'documentId', 'email'],
+    },
+    handler: ({ name, documentId, email, phone }) =>
+      campaignBooking.registerParticipantViaChat({ phone, name, documentId, email }),
+  },
 ];
 
 const TOOLS_BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
@@ -132,6 +167,60 @@ permitidas, dile honestamente que el equipo lo va a contactar para reprogramar �
 una fecha fuera de esta lista como alternativa.`;
 };
 
+const buildRegistrationFlow = (eligibility) => {
+  if (eligibility.reason !== 'not_a_participant') {
+    return '';
+  }
+
+  return `\n\nCLIENTE NUEVO, TODAVÍA NO ES PARTICIPANTE: ya no existe un formulario web, el
+registro se hace por este chat. IMPORTANTE — esto aplica incluso si en mensajes ANTERIORES de
+esta misma conversación tú le dijiste que ya estaba registrado o que ya era participante: ese
+dato quedó obsoleto (por ejemplo, un administrador pudo haber reiniciado su registro). El dato
+de AHORA (not_a_participant) siempre tiene prioridad sobre lo que hayas dicho antes — no le
+digas "ya estabas registrado" ni nada parecido, no menciones ninguna contradicción, simplemente
+trátalo con toda naturalidad como alguien que se registra de nuevo, como si fuera la primera vez.
+Cuéntale que es la campaña de Más Salud y que puede ganar gratis uno de dos beneficios (Hollywood
+Peel o Láser CO₂ fraccionado) — NUNCA le digas cuál de los dos le tocó, eso todavía no se decide
+y se le avisa más adelante cuando lo contactemos. Para participar pídele: nombre completo, número
+de documento de identidad, y correo electrónico (el teléfono ya lo tienes, no lo pidas). No
+avances más de lo que la conversación ya trae — no inventes ni completes ningún dato que el
+cliente no te haya dado explícitamente, y no le preguntes de nuevo un dato que ya te dio. Cuando
+tengas los tres datos, llama a register_participant. Si el registro fue exitoso, dale la
+bienvenida, deséale buena suerte, y dile que pronto lo van a contactar para avisarle qué ganó y
+agendar su cita.`;
+};
+
+const buildRebookingRedirect = (eligibility) => {
+  const alreadyUsedBenefit =
+    eligibility.participant?.status === 'ATTENDED' && eligibility.prizeStatus === 'REDEEMED';
+
+  if (!alreadyUsedBenefit) {
+    return '';
+  }
+
+  return `\n\nBENEFICIO YA UTILIZADO: este cliente ya se realizó su cita gratuita de la campaña
+(beneficio ya usado, no queda otro disponible). Si te pide agendar una cita nueva, dice que ya
+pagó algo, o quiere reprogramar más allá de su beneficio ya usado: NO intentes agendarla tú, no
+llames a get_available_slots ni a book_appointment para esto. Dile amablemente que para una cita
+nueva escriba directamente a ${CLINIC_SUPPORT_PHONE} o visite ${CLINIC_WEBSITE}.`;
+};
+
+const buildFeedbackContext = async (phone) => {
+  const pending = await campaignBooking.findPendingFeedbackSummary({ phone });
+
+  if (!pending) {
+    return '';
+  }
+
+  return `\n\nRETROALIMENTACIÓN PENDIENTE: le preguntamos a este cliente cómo le fue en su cita
+de ${pending.serviceName} (${pending.date}). Si en su mensaje te cuenta cómo le fue, llama a
+record_appointment_feedback con result="positive" o "negative" según corresponda y comment con
+lo que te haya contado. Si el resultado es positivo, agradécele cordialmente. Si es negativo,
+dile que lamentas el inconveniente y que por favor cuente lo sucedido escribiendo a
+${CLINIC_SUPPORT_PHONE} para que el equipo lo atienda directamente — nunca intentes resolver tú
+el problema ni prometas ninguna solución, reprogramación o compensación.`;
+};
+
 const buildEligibilityFacts = async (phone) => {
   try {
     const [services, eligibility] = await Promise.all([
@@ -141,12 +230,23 @@ const buildEligibilityFacts = async (phone) => {
 
     const followUpConstraint =
       eligibility.participant?.status === 'CONTACTED' ? `\n\n${buildFollowUpDateConstraint()}` : '';
+    const registrationFlow = buildRegistrationFlow(eligibility);
+    const rebookingRedirect = buildRebookingRedirect(eligibility);
+    const feedbackContext = await buildFeedbackContext(phone);
 
     return `Servicios reales de la campaña activa: ${JSON.stringify(services.services)}.
-Elegibilidad de este cliente, ya verificada por el sistema: ${JSON.stringify(eligibility)}.
-Esta información YA está verificada — nunca digas que la vas a consultar, ni le pidas al
-cliente su teléfono (ya lo tienes). Si "eligible" es false, exhibe honestamente el motivo
-sin inventar una cita ni un beneficio.${followUpConstraint}`;
+Elegibilidad de este cliente, ya verificada por el sistema EN ESTE MISMO INSTANTE: ${JSON.stringify(eligibility)}.
+Esta información es la verdad actual y tiene prioridad absoluta sobre cualquier cosa que tú
+mismo hayas dicho en turnos anteriores de esta conversación — el estado del cliente puede
+cambiar entre un mensaje y otro (por ejemplo, un administrador puede modificar o reiniciar su
+registro). Si lo que dice esta información no coincide con lo que dijiste antes, no lo
+menciones ni te contradigas en voz alta: simplemente actúa según el dato de ahora. Nunca digas
+que vas a consultar esta información, ni le pidas al cliente su teléfono (ya lo tienes). Si
+"eligible" es false, exhibe honestamente el motivo sin inventar una cita ni un beneficio.
+Recuerda resaltar seguido que el beneficio es 100% GRATIS.
+Cuando confirmes con éxito que una cita quedó agendada, después de la confirmación ofrécele una
+sola vez este enlace para ver el catálogo completo de servicios: ${CLINIC_WEBSITE}
+${registrationFlow}${followUpConstraint}${rebookingRedirect}${feedbackContext}`;
   } catch (error) {
     return `No fue posible verificar automáticamente los datos de campaña (${error.message}).
 Indícale al cliente que vas a confirmar con el equipo, sin inventar disponibilidad ni beneficios.`;
@@ -203,6 +303,35 @@ const callTool = async (functionCall, phone) => {
   }
 };
 
+// Gemini devuelve 503/429 con cierta frecuencia por sobrecarga temporal del
+// modelo ("high demand... please try again later") — son errores transitorios
+// que casi siempre se resuelven en segundos, así que reintentamos un par de
+// veces antes de rendirnos. Sin esto, un blip de Gemini justo después de una
+// acción real (agendar, registrar) deja al cliente con el mensaje de error
+// genérico aunque la acción sí se haya completado en la base de datos.
+const RETRYABLE_STATUSES = [429, 500, 503];
+const RETRY_DELAYS_MS = [800, 2000];
+
+const generateContentWithRetry = async (ai, params) => {
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (error) {
+      const isRetryable = RETRYABLE_STATUSES.includes(error.status);
+      const hasRetriesLeft = attempt < RETRY_DELAYS_MS.length;
+
+      if (!isRetryable || !hasRetriesLeft) {
+        throw error;
+      }
+
+      console.warn(
+        `[gemini-agent] ${error.status} retryable error, reintentando en ${RETRY_DELAYS_MS[attempt]}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+};
+
 const runAgentTurn = async ({ phone, messages, media }) => {
   if (!env.geminiApiKey) {
     throw new Error('GEMINI_API_KEY is not configured');
@@ -222,7 +351,7 @@ const runAgentTurn = async ({ phone, messages, media }) => {
   let lastResponse;
 
   for (let round = 0; round < MAX_TOOL_ROUNDTRIPS; round += 1) {
-    lastResponse = await ai.models.generateContent({
+    lastResponse = await generateContentWithRetry(ai, {
       model: env.geminiModel,
       contents,
       config: {

@@ -5,6 +5,8 @@ const Customer = require('../models/customer');
 const SystemLog = require('../models/SystemLog');
 const Conversation = require('../models/conversation');
 const Message = require('../models/message');
+const { contactParticipant } = require('../jobs/campaignFollowUp.job');
+const systemLogService = require('../services/systemLog.service');
 
 // Registered for populate() even though not queried directly here.
 require('../models/service');
@@ -296,6 +298,44 @@ const getConversationMessages = async (req, res, next) => {
   }
 };
 
+const contactParticipantNow = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const participant = await Participant.findById(id).populate('prize.service', 'name');
+
+    if (!participant) {
+      return res.status(404).json({ success: false, message: 'Participant not found' });
+    }
+
+    if (participant.status !== 'SELECTED' || participant.contactedAt) {
+      return res.status(400).json({
+        success: false,
+        message: 'Este participante ya fue contactado o no está en estado SELECTED.',
+      });
+    }
+
+    await contactParticipant(participant);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Mensaje de contacto enviado.',
+      data: participant,
+    });
+  } catch (error) {
+    systemLogService.logError({
+      type: 'campaign_followup',
+      message: error.message,
+      meta: { participantId: req.params.id },
+    });
+
+    return res.status(502).json({
+      success: false,
+      message: `No se pudo enviar el mensaje: ${error.message}`,
+    });
+  }
+};
+
 const PARTICIPANT_STATUSES = Participant.schema.path('status').enumValues;
 
 const updateParticipantStatus = async (req, res, next) => {
@@ -335,12 +375,36 @@ const updateParticipantStatus = async (req, res, next) => {
   }
 };
 
+const deleteParticipant = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const participant = await Participant.findById(id);
+
+    if (!participant) {
+      return res.status(404).json({ success: false, message: 'Participant not found' });
+    }
+
+    if (participant.appointment) {
+      await Appointment.deleteOne({ _id: participant.appointment });
+    }
+
+    await Participant.deleteOne({ _id: id });
+
+    return res.status(200).json({ success: true, message: 'Participant deleted successfully' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getStats,
   getAppointments,
   getParticipants,
   getCampaigns,
   updateParticipantStatus,
+  contactParticipantNow,
+  deleteParticipant,
   getLogs,
   getConversations,
   getConversationMessages,

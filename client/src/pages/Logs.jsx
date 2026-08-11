@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../api/client';
 import Pagination from '../components/Pagination';
 
-const TYPES = ['whatsapp_send', 'email_send', 'campaign_followup', 'gemini', 'webhook'];
+const TYPES = ['whatsapp_send', 'email_send', 'campaign_followup', 'gemini', 'webhook', 'auth'];
 
 const TYPE_LABEL = {
   whatsapp_send: 'Envío WhatsApp',
@@ -10,6 +10,7 @@ const TYPE_LABEL = {
   campaign_followup: 'Seguimiento de campaña',
   gemini: 'Gemini',
   webhook: 'Webhook',
+  auth: 'Autenticación',
 };
 
 export default function Logs() {

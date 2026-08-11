@@ -53,6 +53,28 @@
         type: String,
         trim: true,
         },
+
+        feedbackRequestedAt: {
+        type: Date,
+        default: null,
+        },
+
+        feedbackResult: {
+        type: String,
+        enum: ['positive', 'negative'],
+        default: null,
+        },
+
+        feedbackComment: {
+        type: String,
+        trim: true,
+        default: '',
+        },
+
+        feedbackReceivedAt: {
+        type: Date,
+        default: null,
+        },
     },
     {
         timestamps: true,

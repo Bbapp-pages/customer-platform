@@ -4,7 +4,7 @@ const systemLogSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['whatsapp_send', 'email_send', 'campaign_followup', 'gemini', 'webhook'],
+      enum: ['whatsapp_send', 'email_send', 'campaign_followup', 'gemini', 'webhook', 'auth'],
       required: true,
       index: true,
     },

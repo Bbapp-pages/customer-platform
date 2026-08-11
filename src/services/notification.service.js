@@ -84,47 +84,54 @@ const buildConfirmationHtml = ({ customerName, serviceName, date, time, confirma
 `;
 };
 
-const buildRegistrationThankYouHtml = ({ customerName }) => `
+const buildRegistrationThankYouHtml = ({ customerName, serviceNames }) => {
+  const prizesList = (serviceNames && serviceNames.length ? serviceNames : ['Hollywood Peel', 'Láser CO₂ fraccionado'])
+    .map((name) => `<li style="margin-bottom: 4px;">${name}</li>`)
+    .join('');
+
+  return `
   <div style="max-width: 480px; margin: 0 auto; font-family: -apple-system, Arial, sans-serif; color: #1a1a1a;">
     <div style="padding: 24px 24px 0;">
       <p style="margin: 0; font-size: 13px; letter-spacing: 1px; font-weight: 600; color: #6b7280; text-transform: uppercase;">
         ${CLINIC_NAME}
       </p>
-      <h1 style="margin: 8px 0 0; font-size: 22px;">¡Gracias por registrarte!</h1>
+      <h1 style="margin: 8px 0 0; font-size: 22px;">¡${customerName}, ya estás participando! 🍀</h1>
     </div>
 
     <div style="padding: 16px 24px;">
       <p style="margin: 0 0 16px; font-size: 14px; color: #374151;">
-        Hola ${customerName}, tu registro en la campaña fue exitoso.
+        Formas parte de nuestra campaña, en la que puedes ganar <strong>totalmente GRATIS</strong>
+        uno de estos tratamientos:
       </p>
 
-      <p style="margin: 0 0 16px; font-size: 14px; color: #374151;">
-        Muy pronto nuestro equipo te va a contactar por WhatsApp o por correo para coordinar tu cita.
-        Mantente atento.
-      </p>
+      <ul style="margin: 0 0 16px; padding-left: 20px; font-size: 14px; color: #374151;">
+        ${prizesList}
+      </ul>
 
       <p style="margin: 0 0 16px; font-size: 14px; color: #374151;">
-        Mientras tanto, te invitamos a conocer nuestros servicios:
+        ¡Mucha suerte! 🍀 Muy pronto te vamos a contactar por WhatsApp para contarte cuál ganaste
+        y coordinar tu cita.
       </p>
 
       <a href="${CLINIC_WEBSITE}" style="display: block; text-align: center; background: #111111; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px; border-radius: 8px;">
-        Ver nuestros servicios
+        Ver todos nuestros servicios
       </a>
     </div>
   </div>
 `;
+};
 
-const sendRegistrationThankYou = async ({ to, customerName }) => {
+const sendRegistrationThankYou = async ({ to, customerName, serviceNames }) => {
   if (!to) {
     console.log(`Skipping registration email for ${customerName}: no email on file`);
     return;
   }
 
-  const html = buildRegistrationThankYouHtml({ customerName });
+  const html = buildRegistrationThankYouHtml({ customerName, serviceNames });
 
   await resendProvider.sendMail({
     to,
-    subject: `¡Gracias por registrarte en ${CLINIC_NAME}!`,
+    subject: `¡${customerName}, ya estás participando! 🍀`,
     html,
   });
 };

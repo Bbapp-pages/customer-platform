@@ -22,6 +22,25 @@ const getContactDelayMs = (participantId) => {
   return CONTACT_DELAY_MIN_MS + fraction * (CONTACT_DELAY_MAX_MS - CONTACT_DELAY_MIN_MS);
 };
 
+// Envía el mensaje real de "ya ganaste" a un participante puntual y actualiza su
+// estado. La usan tanto el cron automático como el botón "Contactar ahora" del
+// dashboard (que se salta la espera de 3-5h y el horario, por ser una acción
+// manual explícita del admin).
+const contactParticipant = async (participant) => {
+  await twilioProvider.sendTemplateMessage({
+    to: participant.phone,
+    contentSid: env.twilioContactTemplateSid,
+    contentVariables: {
+      '1': participant.name,
+      '2': participant.prize.service?.name || 'tu tratamiento',
+    },
+  });
+
+  participant.status = 'CONTACTED';
+  participant.contactedAt = new Date();
+  await participant.save();
+};
+
 const runCampaignFollowUp = async () => {
   const clinicNow = toClinicWallClock(new Date());
   const { weekday } = addClinicDays(clinicNow.date, 0);
@@ -43,19 +62,7 @@ const runCampaignFollowUp = async () => {
     }
 
     try {
-      await twilioProvider.sendTemplateMessage({
-        to: participant.phone,
-        contentSid: env.twilioContactTemplateSid,
-        contentVariables: {
-          '1': participant.name,
-          '2': participant.prize.service?.name || 'tu tratamiento',
-        },
-      });
-
-      participant.status = 'CONTACTED';
-      participant.contactedAt = new Date();
-      await participant.save();
-
+      await contactParticipant(participant);
       console.log(`[campaignFollowUp] Contactado: ${participant.phone}`);
     } catch (error) {
       console.error(`[campaignFollowUp] Error contactando a ${participant.phone}:`, error.message);
@@ -68,4 +75,4 @@ const runCampaignFollowUp = async () => {
   }
 };
 
-module.exports = { runCampaignFollowUp };
+module.exports = { runCampaignFollowUp, contactParticipant };
