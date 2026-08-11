@@ -1,0 +1,103 @@
+    const mongoose = require('mongoose');
+
+    const participantSchema = new mongoose.Schema(
+    {
+        name: {
+        type: String,
+        required: true,
+        trim: true,
+        },
+
+        documentId: {
+        type: String,
+        required: true,
+        trim: true,
+        },
+
+        phone: {
+        type: String,
+        required: true,
+        trim: true,
+        },
+
+        email: {
+        type: String,
+        required: true,
+        lowercase: true,
+        trim: true,
+        },
+
+        campaign: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Campaign',
+        required: true,
+        },
+
+        status: {
+        type: String,
+        enum: [
+            'REGISTERED',
+            'SELECTED',
+            'CONTACTED',
+            'SCHEDULED',
+            'ATTENDED',
+            'NO_SHOW',
+            'CANCELLED',
+            'EXPIRED',
+        ],
+        default: 'REGISTERED',
+        },
+
+        prize: {
+        service: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Service',
+            default: null,
+        },
+
+        status: {
+            type: String,
+            enum: [
+            'AVAILABLE',
+            'SCHEDULED',
+            'REDEEMED',
+            'EXPIRED',
+            ],
+            default: 'AVAILABLE',
+        },
+        },
+
+        appointment: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Appointment',
+        default: null,
+        },
+
+        selectedAt: {
+        type: Date,
+        default: null,
+        },
+
+        contactedAt: {
+        type: Date,
+        default: null,
+        },
+    },
+    {
+        timestamps: true,
+    }
+    );
+
+    participantSchema.index(
+    { campaign: 1, documentId: 1 },
+    { unique: true }
+    );
+
+    participantSchema.index(
+    { campaign: 1, phone: 1 }
+    );
+
+    module.exports = mongoose.model(
+    'Participant',
+    participantSchema
+    );
