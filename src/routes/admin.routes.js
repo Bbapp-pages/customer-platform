@@ -13,5 +13,7 @@ router.get('/participants', adminController.getParticipants);
 router.get('/campaigns', adminController.getCampaigns);
 router.patch('/participants/:id', adminController.updateParticipantStatus);
 router.get('/logs', adminController.getLogs);
+router.get('/conversations', adminController.getConversations);
+router.get('/conversations/:id/messages', adminController.getConversationMessages);
 
 module.exports = router;

@@ -3,6 +3,8 @@ const Participant = require('../models/Participant');
 const Campaign = require('../models/Campaign');
 const Customer = require('../models/customer');
 const SystemLog = require('../models/SystemLog');
+const Conversation = require('../models/conversation');
+const Message = require('../models/message');
 
 // Registered for populate() even though not queried directly here.
 require('../models/service');
@@ -217,6 +219,83 @@ const getLogs = async (req, res, next) => {
   }
 };
 
+const getConversations = async (req, res, next) => {
+  try {
+    const { page, limit, skip } = parsePagination(req);
+    const { q } = req.query;
+
+    let customerFilter = null;
+    if (q && q.trim().length >= 2) {
+      const regex = new RegExp(q.trim(), 'i');
+      const matchingCustomers = await Customer.find({
+        $or: [{ name: regex }, { phone: regex }],
+      }).select('_id');
+
+      customerFilter = { customer: { $in: matchingCustomers.map((c) => c._id) } };
+    }
+
+    const filter = customerFilter || {};
+
+    const [conversations, total] = await Promise.all([
+      Conversation.find(filter)
+        .populate('customer', 'name phone')
+        .sort({ lastMessageAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Conversation.countDocuments(filter),
+    ]);
+
+    const withPreview = await Promise.all(
+      conversations.map(async (conversation) => {
+        const lastMessage = await Message.findOne({ conversation: conversation._id })
+          .sort({ createdAt: -1 })
+          .select('message sender messageType');
+
+        return { ...conversation.toObject(), lastMessage };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: withPreview,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getConversationMessages = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const conversation = await Conversation.findById(id).populate('customer', 'name phone');
+
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation not found',
+      });
+    }
+
+    const messages = await Message.find({ conversation: id })
+      .sort({ createdAt: 1 })
+      .limit(500);
+
+    return res.status(200).json({
+      success: true,
+      data: { conversation, messages },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const PARTICIPANT_STATUSES = Participant.schema.path('status').enumValues;
 
 const updateParticipantStatus = async (req, res, next) => {
@@ -263,4 +342,6 @@ module.exports = {
   getCampaigns,
   updateParticipantStatus,
   getLogs,
+  getConversations,
+  getConversationMessages,
 };

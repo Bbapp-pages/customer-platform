@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/appointments', label: 'Citas' },
   { to: '/participants', label: 'Participantes' },
   { to: '/campaigns', label: 'Campañas' },
+  { to: '/conversations', label: 'Conversaciones' },
   { to: '/logs', label: 'Actividad' },
 ];
 

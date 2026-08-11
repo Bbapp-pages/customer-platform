@@ -8,6 +8,7 @@ import Appointments from './pages/Appointments';
 import Participants from './pages/Participants';
 import Campaigns from './pages/Campaigns';
 import Logs from './pages/Logs';
+import Conversations from './pages/Conversations';
 import PublicRegister from './pages/PublicRegister';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="appointments" element={<Appointments />} />
         <Route path="participants" element={<Participants />} />
         <Route path="campaigns" element={<Campaigns />} />
+        <Route path="conversations" element={<Conversations />} />
         <Route path="logs" element={<Logs />} />
       </Route>
     </Routes>

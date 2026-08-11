@@ -3,6 +3,8 @@
     const env = require('../config/env');
     const { getActiveCampaign } = require('../services/campaignBooking.service');
     const { CLINIC_ADDRESS } = require('../config/campaignSchedule.constants');
+    const notificationService = require('../services/notification.service');
+    const systemLogService = require('../services/systemLog.service');
 
     const getActivePublicCampaign = async (req, res, next) => {
     try {
@@ -85,6 +87,17 @@
         status: 'SELECTED',
         prize: { service: serviceId, status: 'AVAILABLE' },
         selectedAt: new Date(),
+        });
+
+        notificationService
+        .sendRegistrationThankYou({ to: email, customerName: name })
+        .catch((error) => {
+            console.error('Registration thank-you email error:', error);
+            systemLogService.logError({
+            type: 'email_send',
+            message: error.message,
+            meta: { documentId },
+            });
         });
 
         return res.status(201).json({

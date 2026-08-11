@@ -1,9 +1,19 @@
+const { twiml } = require('twilio');
 const Conversation = require('../models/conversation');
 const Message = require('../models/message');
 const { findOrCreateCustomer } = require('./agenda.controller');
 const geminiAgent = require('../integrations/ai/gemini-agent');
 const whatsappProvider = require('../integrations/whatsapp/twilio.provider');
 const systemLogService = require('../services/systemLog.service');
+
+// Twilio espera una respuesta TwiML al webhook, no un 200 de texto plano —
+// si no, intenta interpretar el cuerpo de la respuesta y termina reenviándolo
+// como si fuera un mensaje (por eso aparecía un "OK" después de cada respuesta).
+const respondOk = (res) => {
+  const empty = new twiml.MessagingResponse();
+  res.type('text/xml');
+  return res.status(200).send(empty.toString());
+};
 
 const SUPPORTED_MEDIA_TYPES = ['image', 'audio', 'document'];
 const HISTORY_LIMIT = 20;
@@ -44,7 +54,7 @@ const receiveWebhook = async (req, res) => {
 
     if (!phone) {
       // Callbacks de estado (statuses) u otros eventos que no traen un mensaje.
-      return res.sendStatus(200);
+      return respondOk(res);
     }
 
     const contactName = req.body.ProfileName || phone;
@@ -71,16 +81,29 @@ const receiveWebhook = async (req, res) => {
     conversation.lastMessageAt = new Date();
     await conversation.save();
 
+    const hasMedia = numMedia > 0 && SUPPORTED_MEDIA_TYPES.includes(mediaType);
+    const canProcess = isText || hasMedia;
+
     let reply = null;
 
-    if (!isText) {
-      // No inventamos que entendimos el contenido: no pasa por Gemini.
+    if (!canProcess) {
+      // Tipo no soportado (video, ubicación, contacto, etc.): no pasa por Gemini.
       reply = UNSUPPORTED_TYPE_REPLY;
     } else if (conversation.status !== 'human') {
       const history = await getRecentMessages(conversation._id);
 
+      let media = null;
+      if (hasMedia) {
+        try {
+          media = await whatsappProvider.fetchMedia(req.body.MediaUrl0);
+        } catch (error) {
+          console.error('Media fetch error:', error);
+          systemLogService.logError({ type: 'webhook', message: error.message, meta: { phone } });
+        }
+      }
+
       try {
-        reply = await geminiAgent.runAgentTurn({ phone, messages: history });
+        reply = await geminiAgent.runAgentTurn({ phone, messages: history, media });
       } catch (error) {
         console.error('Gemini agent error:', error);
         systemLogService.logError({ type: 'gemini', message: error.message, meta: { phone } });
@@ -102,14 +125,14 @@ const receiveWebhook = async (req, res) => {
       });
     }
 
-    return res.sendStatus(200);
+    return respondOk(res);
   } catch (error) {
     // Twilio reintenta agresivamente ante cualquier respuesta que no sea 200,
     // así que siempre se confirma la recepción aunque algo haya fallado.
     console.error('WhatsApp webhook error:', error);
     systemLogService.logError({ type: 'webhook', message: error.message });
 
-    return res.sendStatus(200);
+    return respondOk(res);
   }
 };
 

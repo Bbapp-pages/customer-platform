@@ -203,7 +203,7 @@ const callTool = async (functionCall, phone) => {
   }
 };
 
-const runAgentTurn = async ({ phone, messages }) => {
+const runAgentTurn = async ({ phone, messages, media }) => {
   if (!env.geminiApiKey) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
@@ -213,6 +213,12 @@ const runAgentTurn = async ({ phone, messages }) => {
   const systemInstruction = buildSystemInstruction(facts);
 
   let contents = messages.map(mapMessageToContent);
+
+  if (media) {
+    const lastContent = contents[contents.length - 1];
+    lastContent.parts.push({ inlineData: { mimeType: media.mimeType, data: media.data } });
+  }
+
   let lastResponse;
 
   for (let round = 0; round < MAX_TOOL_ROUNDTRIPS; round += 1) {

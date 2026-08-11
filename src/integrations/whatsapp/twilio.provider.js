@@ -27,4 +27,19 @@ const sendTemplateMessage = async ({ to, contentSid, contentVariables }) =>
     contentVariables: JSON.stringify(contentVariables),
   });
 
-module.exports = { sendMessage, sendTemplateMessage };
+const fetchMedia = async (mediaUrl) => {
+  const authHeader =
+    'Basic ' + Buffer.from(`${env.twilioAccountSid}:${env.twilioAuthToken}`).toString('base64');
+
+  const response = await fetch(mediaUrl, { headers: { Authorization: authHeader } });
+
+  if (!response.ok) {
+    throw new Error(`Twilio media fetch error (${response.status})`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  return { data: buffer.toString('base64'), mimeType: response.headers.get('content-type') };
+};
+
+module.exports = { sendMessage, sendTemplateMessage, fetchMedia };

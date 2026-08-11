@@ -37,6 +37,31 @@ const ArrowIcon = () => (
   </svg>
 );
 
+const COUNTRIES = [
+  { code: '1', name: 'Canadá' },
+  { code: '1', name: 'Estados Unidos' },
+  { code: '52', name: 'México' },
+  { code: '501', name: 'Belice' },
+  { code: '502', name: 'Guatemala' },
+  { code: '503', name: 'El Salvador' },
+  { code: '504', name: 'Honduras' },
+  { code: '505', name: 'Nicaragua' },
+  { code: '506', name: 'Costa Rica' },
+  { code: '507', name: 'Panamá' },
+  { code: '57', name: 'Colombia' },
+  { code: '58', name: 'Venezuela' },
+  { code: '592', name: 'Guyana' },
+  { code: '597', name: 'Surinam' },
+  { code: '593', name: 'Ecuador' },
+  { code: '51', name: 'Perú' },
+  { code: '55', name: 'Brasil' },
+  { code: '591', name: 'Bolivia' },
+  { code: '595', name: 'Paraguay' },
+  { code: '56', name: 'Chile' },
+  { code: '54', name: 'Argentina' },
+  { code: '598', name: 'Uruguay' },
+];
+
 const inputStyle = {
   background: COLORS.field,
   borderColor: COLORS.border,
@@ -53,6 +78,7 @@ export default function PublicRegister() {
 
   const [name, setName] = useState('');
   const [documentId, setDocumentId] = useState('');
+  const [countryCode, setCountryCode] = useState('506');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [serviceId, setServiceId] = useState('');
@@ -84,7 +110,7 @@ export default function PublicRegister() {
       const res = await api.post('/campaigns/active/register', {
         name,
         documentId,
-        phone,
+        phone: `${countryCode}${phone.replace(/\D/g, '')}`,
         email,
         serviceId,
       });
@@ -117,8 +143,6 @@ export default function PublicRegister() {
       </div>
     );
   }
-
-  const digits = String(campaign.whatsappNumber || '').replace(/\D/g, '');
 
   return (
     <div
@@ -172,18 +196,10 @@ export default function PublicRegister() {
           {result ? (
             <div className="text-center">
               <h2 className="text-xl font-semibold">¡Listo!</h2>
-              <p className="mt-2 mb-6 text-sm" style={{ color: COLORS.inkSecondary }}>
-                Ya quedaste registrado. Continúa por WhatsApp para agendar tu cita.
+              <p className="mt-2 text-sm" style={{ color: COLORS.inkSecondary }}>
+                Ya quedaste registrado. Muy pronto te vamos a contactar por WhatsApp o por correo
+                para coordinar tu cita.
               </p>
-              <a
-                href={`https://wa.me/${digits}?text=Hola`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold"
-                style={{ background: COLORS.ink, color: COLORS.page }}
-              >
-                Continuar por WhatsApp <ArrowIcon />
-              </a>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
@@ -214,14 +230,28 @@ export default function PublicRegister() {
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide" style={labelStyle}>
                 Teléfono (WhatsApp)
               </label>
-              <input
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Tu número de WhatsApp"
-                className="mb-4 w-full rounded-lg border px-3 py-2.5 text-sm outline-none"
-                style={inputStyle}
-              />
+              <div className="mb-4 flex gap-2">
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="w-32 shrink-0 rounded-lg border px-2 py-2.5 text-sm"
+                  style={inputStyle}
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c.name} value={c.code}>
+                      {c.name} (+{c.code})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Número sin código de país"
+                  className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none"
+                  style={inputStyle}
+                />
+              </div>
 
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide" style={labelStyle}>
                 Correo
