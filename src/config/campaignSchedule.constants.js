@@ -1,11 +1,11 @@
-/**
- * Horarios y cupos de "Campaña Facial 2026" (ver instructions.md).
- * Hardcodeado porque hoy solo existe una campaña activa y estos valores
- * son la fuente de la verdad que dio el negocio, no configuración
- * reutilizable entre campañas.
- */
+
 
 const CLINIC_UTC_OFFSET = '-05:00';
+
+const CLINIC_NAME = 'MÁS SALUD';
+
+// TODO: reemplazar con la dirección real de la clínica.
+const CLINIC_ADDRESS = 'Costa Rica, Uruca, 250 mts este del Hotel Irazu';
 
 const SCHEDULE_CUTOVER_DATE = '2026-08-16';
 
@@ -28,6 +28,8 @@ const getBusinessHoursForDate = (dateStr) =>
 
 module.exports = {
   CLINIC_UTC_OFFSET,
+  CLINIC_NAME,
+  CLINIC_ADDRESS,
   SCHEDULE_CUTOVER_DATE,
   TOTAL_DAILY_CAP,
   getBusinessHoursForDate,

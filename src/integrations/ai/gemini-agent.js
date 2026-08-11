@@ -6,6 +6,7 @@ const { GoogleGenAI, createPartFromFunctionResponse } = require('@google/genai')
 const env = require('../../config/env');
 const campaignBooking = require('../../services/campaignBooking.service');
 const { CLINIC_UTC_OFFSET } = require('../../config/campaignSchedule.constants');
+const { toClinicWallClock, addClinicDays } = require('../../utils/clinicTime');
 
 const MAX_TOOL_ROUNDTRIPS = 5;
 
@@ -94,6 +95,43 @@ const FUNCTION_DECLARATIONS = TOOLS.map(({ name, description, parametersJsonSche
   parametersJsonSchema,
 }));
 
+const formatDateWithWeekday = (dateStr) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const label = new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+
+  return `${label} (${dateStr})`;
+};
+
+const buildFollowUpDateConstraint = () => {
+  const today = toClinicWallClock(new Date()).date;
+  const day1 = addClinicDays(today, 1);
+  const day2 = addClinicDays(today, 2);
+
+  const allowedDates = day1.weekday === 0 ? [day2.date] : [day1.date];
+  if (day1.weekday !== 0 && day2.weekday !== 0) {
+    allowedDates.push(day2.date);
+  }
+
+  return `REGLA OBLIGATORIA PARA ESTA CONVERSACIÓN (no negociable, tiene prioridad sobre cualquier
+fecha que el cliente mencione): este cliente fue contactado proactivamente por la campaña y
+todavía no tiene cita agendada. Las ÚNICAS fechas que existen para agendar con este cliente son
+(usa exactamente este nombre de día, no lo recalcules):
+${allowedDates.map((d, i) => `${i + 1}. ${formatDateWithWeekday(d)}`).join('\n')}
+${allowedDates.length === 2 ? `Prioriza llenar la fecha 1 (${allowedDates[0]}) antes de ofrecer la fecha 2.` : ''}
+Si el cliente pide, propone o insiste en cualquier otra fecha (incluida "el próximo [día]",
+"la otra semana", o cualquier fecha fuera de esta lista): NO llames a get_available_slots con esa
+fecha, NO la aceptes. En su lugar, explícale amablemente que por este contacto especial solo hay
+cupo disponible en ${allowedDates.length === 2 ? 'estas dos fechas' : 'esta fecha'} y vuelve a
+ofrecérsela(s). Si get_available_slots muestra que ya no hay cupo en ninguna de estas fechas
+permitidas, dile honestamente que el equipo lo va a contactar para reprogramar — nunca ofrezcas
+una fecha fuera de esta lista como alternativa.`;
+};
+
 const buildEligibilityFacts = async (phone) => {
   try {
     const [services, eligibility] = await Promise.all([
@@ -101,11 +139,14 @@ const buildEligibilityFacts = async (phone) => {
       campaignBooking.checkEligibility({ phone }),
     ]);
 
+    const followUpConstraint =
+      eligibility.participant?.status === 'CONTACTED' ? `\n\n${buildFollowUpDateConstraint()}` : '';
+
     return `Servicios reales de la campaña activa: ${JSON.stringify(services.services)}.
 Elegibilidad de este cliente, ya verificada por el sistema: ${JSON.stringify(eligibility)}.
 Esta información YA está verificada — nunca digas que la vas a consultar, ni le pidas al
 cliente su teléfono (ya lo tienes). Si "eligible" es false, exhibe honestamente el motivo
-sin inventar una cita ni un beneficio.`;
+sin inventar una cita ni un beneficio.${followUpConstraint}`;
   } catch (error) {
     return `No fue posible verificar automáticamente los datos de campaña (${error.message}).
 Indícale al cliente que vas a confirmar con el equipo, sin inventar disponibilidad ni beneficios.`;

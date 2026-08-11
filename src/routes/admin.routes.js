@@ -11,5 +11,7 @@ router.get('/stats', adminController.getStats);
 router.get('/appointments', adminController.getAppointments);
 router.get('/participants', adminController.getParticipants);
 router.get('/campaigns', adminController.getCampaigns);
+router.patch('/participants/:id', adminController.updateParticipantStatus);
+router.get('/logs', adminController.getLogs);
 
 module.exports = router;

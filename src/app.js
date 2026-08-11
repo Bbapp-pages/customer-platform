@@ -5,6 +5,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const app = express();
+app.set('trust proxy', true);
+
 const aiRoutes = require('./routes/ai.routes');
 const participantRoutes = require(
   './routes/participant.routes'

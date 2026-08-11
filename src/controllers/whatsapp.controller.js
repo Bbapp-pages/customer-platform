@@ -1,9 +1,9 @@
-const env = require('../config/env');
 const Conversation = require('../models/conversation');
 const Message = require('../models/message');
 const { findOrCreateCustomer } = require('./agenda.controller');
 const geminiAgent = require('../integrations/ai/gemini-agent');
-const whatsappProvider = require('../integrations/whatsapp/whatsapp-cloud.provider');
+const whatsappProvider = require('../integrations/whatsapp/twilio.provider');
+const systemLogService = require('../services/systemLog.service');
 
 const SUPPORTED_MEDIA_TYPES = ['image', 'audio', 'document'];
 const HISTORY_LIMIT = 20;
@@ -13,20 +13,11 @@ const UNSUPPORTED_TYPE_REPLY =
 const FALLBACK_ERROR_REPLY =
   'Estamos teniendo un problema técnico. Un asesor te va a contactar pronto.';
 
-const verifyWebhook = (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-
-  if (mode === 'subscribe' && token === env.whatsappVerifyToken) {
-    console.log('✓ WhatsApp webhook verified');
-
-    return res.status(200).send(challenge);
-  }
-
-  console.error('✗ WhatsApp webhook verification failed');
-
-  return res.sendStatus(403);
+const mapMediaType = (mimeType) => {
+  if (!mimeType) return 'other';
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  return 'document';
 };
 
 const findOrCreateActiveConversation = async (customerId) => {
@@ -49,32 +40,32 @@ const getRecentMessages = async (conversationId) => {
 
 const receiveWebhook = async (req, res) => {
   try {
-    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
-    const message = value?.messages?.[0];
+    const phone = (req.body.From || '').replace(/^whatsapp:/, '').replace(/\D/g, '');
 
-    if (!message) {
+    if (!phone) {
       // Callbacks de estado (statuses) u otros eventos que no traen un mensaje.
       return res.sendStatus(200);
     }
 
-    const phone = message.from;
-    const contactName = value.contacts?.[0]?.profile?.name || phone;
+    const contactName = req.body.ProfileName || phone;
+    const body = req.body.Body;
+    const numMedia = Number(req.body.NumMedia || 0);
+    const isText = numMedia === 0 && !!body;
+    const mediaType = numMedia > 0 ? mapMediaType(req.body.MediaContentType0) : null;
 
     const customer = await findOrCreateCustomer({ phone, name: contactName });
     const conversation = await findOrCreateActiveConversation(customer._id);
 
-    const isText = message.type === 'text';
-
     await Message.create({
       conversation: conversation._id,
       sender: 'customer',
-      message: isText ? message.text.body : `[${message.type}]`,
-      messageType: SUPPORTED_MEDIA_TYPES.includes(message.type)
-        ? message.type
+      message: isText ? body : `[${mediaType || 'other'}]`,
+      messageType: SUPPORTED_MEDIA_TYPES.includes(mediaType)
+        ? mediaType
         : isText
           ? 'text'
           : 'other',
-      metadata: { wamid: message.id },
+      metadata: { messageSid: req.body.MessageSid },
     });
 
     conversation.lastMessageAt = new Date();
@@ -92,6 +83,7 @@ const receiveWebhook = async (req, res) => {
         reply = await geminiAgent.runAgentTurn({ phone, messages: history });
       } catch (error) {
         console.error('Gemini agent error:', error);
+        systemLogService.logError({ type: 'gemini', message: error.message, meta: { phone } });
         reply = FALLBACK_ERROR_REPLY;
       }
     }
@@ -106,20 +98,21 @@ const receiveWebhook = async (req, res) => {
 
       await whatsappProvider.sendMessage({ to: phone, body: reply }).catch((error) => {
         console.error('WhatsApp send error:', error);
+        systemLogService.logError({ type: 'whatsapp_send', message: error.message, meta: { phone } });
       });
     }
 
     return res.sendStatus(200);
   } catch (error) {
-    // Meta reintenta agresivamente ante cualquier respuesta que no sea 200,
+    // Twilio reintenta agresivamente ante cualquier respuesta que no sea 200,
     // así que siempre se confirma la recepción aunque algo haya fallado.
     console.error('WhatsApp webhook error:', error);
+    systemLogService.logError({ type: 'webhook', message: error.message });
 
     return res.sendStatus(200);
   }
 };
 
 module.exports = {
-  verifyWebhook,
   receiveWebhook,
 };

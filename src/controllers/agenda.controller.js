@@ -2,6 +2,9 @@ const Appointment = require('../models/Appointment');
 const Customer = require('../models/customer');
 const Service = require('../models/service');
 const Employee = require('../models/Employee');
+const { toClinicWallClock } = require('../utils/clinicTime');
+const notificationService = require('../services/notification.service');
+const systemLogService = require('../services/systemLog.service');
 
 const MAX_RANGE_APPOINTMENTS = 1000;
 
@@ -142,6 +145,26 @@ const createAppointment = async (req, res, next) => {
       { path: 'service', select: 'name price durationMinutes' },
       { path: 'employee', select: 'name' },
     ]);
+
+    const { date, time } = toClinicWallClock(start);
+
+    notificationService
+      .sendAppointmentConfirmation({
+        to: resolvedCustomer.email,
+        customerName: resolvedCustomer.name,
+        serviceName: service.name,
+        date,
+        time,
+        appointmentId: appointment._id,
+      })
+      .catch((error) => {
+        console.error('Appointment confirmation email error:', error);
+        systemLogService.logError({
+          type: 'email_send',
+          message: error.message,
+          meta: { appointmentId: String(appointment._id) },
+        });
+      });
 
     return res.status(201).json({
       success: true,

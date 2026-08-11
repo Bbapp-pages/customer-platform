@@ -17,13 +17,17 @@
     whatsappProvider:
         process.env.WHATSAPP_PROVIDER || 'mock',
 
-    whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
 
-    whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN,
+    twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
 
-    whatsappApiVersion: process.env.WHATSAPP_API_VERSION || 'v21.0',
+    twilioWhatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER,
 
-    whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN,
+    twilioContactTemplateSid: process.env.TWILIO_CONTACT_TEMPLATE_SID,
+
+    resendApiKey: process.env.RESEND_API_KEY,
+
+    emailFrom: process.env.EMAIL_FROM || 'onboarding@resend.dev',
 
     calendarProvider:
         process.env.CALENDAR_PROVIDER || 'mock',

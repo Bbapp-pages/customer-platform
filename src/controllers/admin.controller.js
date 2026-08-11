@@ -2,6 +2,7 @@ const Appointment = require('../models/Appointment');
 const Participant = require('../models/Participant');
 const Campaign = require('../models/Campaign');
 const Customer = require('../models/customer');
+const SystemLog = require('../models/SystemLog');
 
 // Registered for populate() even though not queried directly here.
 require('../models/service');
@@ -17,12 +18,15 @@ const parsePagination = (req) => {
 
 const getStats = async (req, res, next) => {
   try {
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
     const [
       appointmentsByStatus,
       participantsByStatus,
       totalCampaigns,
       activeCampaigns,
       totalCustomers,
+      errorsLast24h,
     ] = await Promise.all([
       Appointment.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
@@ -33,6 +37,7 @@ const getStats = async (req, res, next) => {
       Campaign.countDocuments(),
       Campaign.countDocuments({ active: true }),
       Customer.countDocuments(),
+      SystemLog.countDocuments({ createdAt: { $gte: last24h } }),
     ]);
 
     const toCountMap = (rows) =>
@@ -65,6 +70,9 @@ const getStats = async (req, res, next) => {
         customers: {
           total: totalCustomers,
         },
+        errors: {
+          last24h: errorsLast24h,
+        },
       },
     });
   } catch (error) {
@@ -75,11 +83,25 @@ const getStats = async (req, res, next) => {
 const getAppointments = async (req, res, next) => {
   try {
     const { page, limit, skip } = parsePagination(req);
-    const { status } = req.query;
+    const { status, q, from, to } = req.query;
 
     const filter = {};
     if (status) {
       filter.status = status;
+    }
+    if (from) {
+      filter.endTime = { $gt: new Date(from) };
+    }
+    if (to) {
+      filter.startTime = { $lt: new Date(to) };
+    }
+    if (q && q.trim().length >= 2) {
+      const regex = new RegExp(q.trim(), 'i');
+      const matchingCustomers = await Customer.find({
+        $or: [{ name: regex }, { phone: regex }],
+      }).select('_id');
+
+      filter.customer = { $in: matchingCustomers.map((c) => c._id) };
     }
 
     const [appointments, total] = await Promise.all([
@@ -111,7 +133,7 @@ const getAppointments = async (req, res, next) => {
 const getParticipants = async (req, res, next) => {
   try {
     const { page, limit, skip } = parsePagination(req);
-    const { status, campaign } = req.query;
+    const { status, campaign, q } = req.query;
 
     const filter = {};
     if (status) {
@@ -119,6 +141,10 @@ const getParticipants = async (req, res, next) => {
     }
     if (campaign) {
       filter.campaign = campaign;
+    }
+    if (q && q.trim().length >= 2) {
+      const regex = new RegExp(q.trim(), 'i');
+      filter.$or = [{ name: regex }, { phone: regex }];
     }
 
     const [participants, total] = await Promise.all([
@@ -161,9 +187,80 @@ const getCampaigns = async (req, res, next) => {
   }
 };
 
+const getLogs = async (req, res, next) => {
+  try {
+    const { page, limit, skip } = parsePagination(req);
+    const { type } = req.query;
+
+    const filter = {};
+    if (type) {
+      filter.type = type;
+    }
+
+    const [logs, total] = await Promise.all([
+      SystemLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      SystemLog.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: logs,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const PARTICIPANT_STATUSES = Participant.schema.path('status').enumValues;
+
+const updateParticipantStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !PARTICIPANT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `status must be one of: ${PARTICIPANT_STATUSES.join(', ')}`,
+      });
+    }
+
+    const participant = await Participant.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    )
+      .populate('campaign', 'name')
+      .populate('prize.service', 'name');
+
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Participant not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Participant updated successfully',
+      data: participant,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getStats,
   getAppointments,
   getParticipants,
   getCampaigns,
+  updateParticipantStatus,
+  getLogs,
 };

@@ -6,10 +6,12 @@ require('../models/customer');
 
 const { findOrCreateCustomer } = require('../controllers/agenda.controller');
 const {
-  CLINIC_UTC_OFFSET,
   TOTAL_DAILY_CAP,
   getBusinessHoursForDate,
 } = require('../config/campaignSchedule.constants');
+const { toClinicWallClock, fromClinicWallClock } = require('../utils/clinicTime');
+const notificationService = require('./notification.service');
+const systemLogService = require('./systemLog.service');
 
 const ELIGIBLE_STATUSES = ['SELECTED', 'CONTACTED'];
 
@@ -23,27 +25,6 @@ const normalizeServiceCode = (code) =>
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_');
-
-const parseOffsetMinutes = (offset) => {
-  const match = offset.match(/^([+-])(\d{2}):(\d{2})$/);
-  const sign = match[1] === '-' ? -1 : 1;
-  return sign * (Number(match[2]) * 60 + Number(match[3]));
-};
-
-const CLINIC_OFFSET_MINUTES = parseOffsetMinutes(CLINIC_UTC_OFFSET);
-
-const toClinicWallClock = (date) => {
-  const local = new Date(date.getTime() + CLINIC_OFFSET_MINUTES * 60000);
-  const pad = (n) => String(n).padStart(2, '0');
-
-  return {
-    date: `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`,
-    time: `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`,
-  };
-};
-
-const fromClinicWallClock = (dateStr, timeStr) =>
-  new Date(`${dateStr}T${timeStr}:00${CLINIC_UTC_OFFSET}`);
 
 const timeToMinutes = (time) => {
   const [h, m] = time.split(':').map(Number);
@@ -272,6 +253,24 @@ const bookAppointment = async ({ phone, name, serviceCode, date, time }) => {
   participant.appointment = appointment._id;
   await participant.save();
 
+  notificationService
+    .sendAppointmentConfirmation({
+      to: participant.email,
+      customerName: participant.name,
+      serviceName: service.name,
+      date,
+      time,
+      appointmentId: appointment._id,
+    })
+    .catch((error) => {
+      console.error('Appointment confirmation email error:', error);
+      systemLogService.logError({
+        type: 'email_send',
+        message: error.message,
+        meta: { appointmentId: String(appointment._id) },
+      });
+    });
+
   return {
     success: true,
     appointment: { id: String(appointment._id), date, time, service: service.name },
@@ -359,6 +358,7 @@ const rescheduleAppointment = async ({ phone, date, time }) => {
 };
 
 module.exports = {
+  getActiveCampaign,
   listServices,
   checkEligibility,
   getAvailableSlots,

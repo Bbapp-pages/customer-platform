@@ -10,16 +10,41 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/admin/stats'),
-      api.get('/admin/appointments', { params: { limit: 5 } }),
-    ])
-      .then(([statsRes, appointmentsRes]) => {
-        setStats(statsRes.data.data);
-        setRecentAppointments(appointmentsRes.data.data);
-      })
-      .catch(() => setError('No se pudieron cargar las estadísticas'))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    let isFirstLoad = true;
+
+    const fetchData = () =>
+      Promise.all([
+        api.get('/admin/stats'),
+        api.get('/admin/appointments', { params: { limit: 5 } }),
+      ])
+        .then(([statsRes, appointmentsRes]) => {
+          if (cancelled) return;
+          setStats(statsRes.data.data);
+          setRecentAppointments(appointmentsRes.data.data);
+          setError('');
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          if (isFirstLoad) {
+            setError('No se pudieron cargar las estadísticas');
+          } else {
+            console.error('Dashboard refresh error:', err);
+          }
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setLoading(false);
+          isFirstLoad = false;
+        });
+
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   if (loading) {
@@ -50,6 +75,7 @@ export default function Dashboard() {
           value={`${stats.campaigns.active} / ${stats.campaigns.total}`}
         />
         <StatCard label="Clientes" value={stats.customers.total} />
+        <StatCard label="Errores (24h)" value={stats.errors.last24h} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -1,21 +1,17 @@
-    const express = require('express');
-    
-    console.log('✓ WhatsApp routes loaded');
+const express = require('express');
+const { webhook } = require('twilio');
 
-    const whatsappController = require(
-    '../controllers/whatsapp.controller'
-    );
+console.log('✓ WhatsApp routes loaded');
 
-    const router = express.Router();
+const whatsappController = require('../controllers/whatsapp.controller');
+const env = require('../config/env');
 
-    router.get(
-    '/webhook',
-    whatsappController.verifyWebhook
-    );
+const router = express.Router();
 
-    router.post(
-    '/webhook',
-    whatsappController.receiveWebhook
-    );
+router.post(
+  '/webhook',
+  webhook({ authToken: env.twilioAuthToken }),
+  whatsappController.receiveWebhook
+);
 
-    module.exports = router;
+module.exports = router;
