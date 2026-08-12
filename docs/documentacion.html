@@ -1,0 +1,588 @@
+<title>Más Salud LATAM — Documentación del proyecto</title>
+<style>
+  :root {
+    --ground: #eef1ee;
+    --surface: #f8faf8;
+    --surface-raised: #ffffff;
+    --ink: #16211d;
+    --ink-secondary: #45524b;
+    --ink-muted: #6b766f;
+    --line: #cbd3cc;
+    --line-soft: #dde3da;
+    --accent: #1f6f63;
+    --accent-ink: #ffffff;
+    --accent-soft: #e4efec;
+    --accent-soft-line: #bdd8d1;
+    --warn: #9a6a1e;
+    --warn-soft: #f3e7d2;
+    --warn-line: #dcc394;
+    --critical: #9c3c33;
+    --critical-soft: #f3deda;
+    --critical-line: #dfb3ac;
+    --mono-bg: #e9ede8;
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10150f;
+      --surface: #161c15;
+      --surface-raised: #1b221a;
+      --ink: #e8ede6;
+      --ink-secondary: #b9c4b6;
+      --ink-muted: #8b9689;
+      --line: #313b2f;
+      --line-soft: #263123;
+      --accent: #4fa696;
+      --accent-ink: #06120f;
+      --accent-soft: #1a2b26;
+      --accent-soft-line: #2f5249;
+      --warn: #d3a45c;
+      --warn-soft: #2f2618;
+      --warn-line: #5c4726;
+      --critical: #e2837a;
+      --critical-soft: #2f1c1a;
+      --critical-line: #5c332e;
+      --mono-bg: #1c231a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #10150f;
+    --surface: #161c15;
+    --surface-raised: #1b221a;
+    --ink: #e8ede6;
+    --ink-secondary: #b9c4b6;
+    --ink-muted: #8b9689;
+    --line: #313b2f;
+    --line-soft: #263123;
+    --accent: #4fa696;
+    --accent-ink: #06120f;
+    --accent-soft: #1a2b26;
+    --accent-soft-line: #2f5249;
+    --warn: #d3a45c;
+    --warn-soft: #2f2618;
+    --warn-line: #5c4726;
+    --critical: #e2837a;
+    --critical-soft: #2f1c1a;
+    --critical-line: #5c332e;
+    --mono-bg: #1c231a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 4.5rem 1.5rem 6rem;
+  }
+
+  /* ---- Cover ---- */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding-bottom: 2.4rem;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 2.6rem;
+  }
+  .cover-eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .cover h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.1rem, 5vw, 2.85rem);
+    font-weight: 600;
+    line-height: 1.12;
+    margin: 0;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  .cover p.dek {
+    font-size: 1.08rem;
+    color: var(--ink-secondary);
+    max-width: 40rem;
+    margin: 0;
+  }
+  .cover-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.6rem;
+    margin-top: 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+  }
+  .cover-meta strong {
+    color: var(--ink-secondary);
+    font-weight: 600;
+  }
+
+  /* ---- TOC ---- */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 1.5rem 1.7rem;
+    margin-bottom: 3rem;
+  }
+  .toc-title {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 0.9rem;
+  }
+  .toc ol {
+    columns: 2;
+    column-gap: 2.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: toc;
+  }
+  .toc li {
+    counter-increment: toc;
+    break-inside: avoid;
+    margin-bottom: 0.55rem;
+    font-size: 0.92rem;
+  }
+  .toc li::before {
+    content: counter(toc, decimal-leading-zero) " ";
+    font-family: var(--mono);
+    color: var(--accent);
+    margin-right: 0.35rem;
+  }
+  .toc a { color: var(--ink-secondary); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  /* ---- Sections ---- */
+  section {
+    margin-bottom: 3.2rem;
+    padding-left: 1.3rem;
+    border-left: 3px solid var(--accent-soft-line);
+    scroll-margin-top: 2rem;
+  }
+  section.compliance { border-left-color: var(--warn-line); }
+  section.risks { border-left-color: var(--critical-line); }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.55rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 0.3rem;
+    text-wrap: balance;
+  }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin-right: 0.5rem;
+  }
+  section.compliance h2 .num { color: var(--warn); }
+  section.risks h2 .num { color: var(--critical); }
+
+  h3 {
+    font-family: var(--serif);
+    font-size: 1.12rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 1.6rem 0 0.5rem;
+  }
+
+  p { margin: 0.7rem 0; max-width: 42rem; color: var(--ink-secondary); }
+  strong { color: var(--ink); }
+  a { color: var(--accent); }
+
+  ul, ol.plain { margin: 0.6rem 0; padding-left: 1.3rem; color: var(--ink-secondary); }
+  ul li, ol.plain li { margin-bottom: 0.4rem; }
+  ul li::marker { color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--mono-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    background: var(--mono-bg);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+
+  /* ---- Tables ---- */
+  .table-wrap { overflow-x: auto; margin: 1rem 0 1.4rem; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 500;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td {
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-secondary);
+    vertical-align: top;
+  }
+  td:first-child, th:first-child { padding-left: 0; }
+  tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+
+  /* ---- Callouts ---- */
+  .callout {
+    border: 1px solid var(--line-soft);
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 0.95rem 1.15rem;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+    max-width: 42rem;
+  }
+  .callout p { margin: 0.3rem 0; color: var(--ink-secondary); }
+  .callout-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+  .callout.note { background: var(--accent-soft); border-color: var(--accent-soft-line); }
+  .callout.note .callout-label { color: var(--accent); }
+  .callout.compliance { background: var(--warn-soft); border-color: var(--warn-line); }
+  .callout.compliance .callout-label { color: var(--warn); }
+  .callout.risk { background: var(--critical-soft); border-color: var(--critical-line); }
+  .callout.risk .callout-label { color: var(--critical); }
+
+  /* ---- Architecture diagram ---- */
+  .arch {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.9rem;
+    margin: 1.3rem 0 1.6rem;
+    max-width: 46rem;
+  }
+  .arch-node {
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.85rem 0.9rem;
+    font-size: 0.82rem;
+  }
+  .arch-node .t {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .arch-node b { color: var(--ink); display: block; margin-bottom: 0.2rem; font-size: 0.88rem; }
+  .arch-node span.d { color: var(--ink-muted); }
+  .arch-row-label {
+    grid-column: 1 / -1;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-top: 0.4rem;
+  }
+  .arch-row-label:first-child { margin-top: 0; }
+
+  /* ---- Footer ---- */
+  .doc-footer {
+    margin-top: 4rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .print-hint {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  }
+
+  @media print {
+    .print-hint { display: none; }
+    body { background: #fff; }
+    .sheet { padding: 0; max-width: none; }
+    section { break-inside: avoid-page; }
+    .toc { break-after: page; }
+  }
+
+  @media (max-width: 640px) {
+    .arch { grid-template-columns: 1fr; }
+    .toc ol { columns: 1; }
+  }
+</style>
+
+<button class="print-hint" onclick="window.print()">Guardar como PDF ↓</button>
+
+<div class="sheet">
+
+  <div class="cover">
+    <span class="cover-eyebrow">Documentación técnica &amp; regulatoria</span>
+    <h1>WhatsApp AI Backend — Más Salud LATAM</h1>
+    <p class="dek">Sistema de campaña, agendamiento y atención por WhatsApp con IA, para la gestión del beneficio promocional de tratamientos estéticos (Hollywood Peel / Láser CO₂ fraccionado).</p>
+    <div class="cover-meta">
+      <span><strong>Versión</strong> 1.0.0</span>
+      <span><strong>Repositorio</strong> whatsapp-ai-backend</span>
+      <span><strong>Actualizado</strong> 12 de agosto, 2026</span>
+      <span><strong>Preparado para</strong> Más Salud LATAM</span>
+    </div>
+  </div>
+
+  <div class="toc">
+    <p class="toc-title">Contenido</p>
+    <ol>
+      <li><a href="#overview">Qué es este sistema</a></li>
+      <li><a href="#architecture">Arquitectura y despliegue</a></li>
+      <li><a href="#data">Modelo de datos</a></li>
+      <li><a href="#flows">Flujos principales</a></li>
+      <li><a href="#env">Configuración y variables de entorno</a></li>
+      <li><a href="#dashboard">Panel de administración</a></li>
+      <li><a href="#compliance">Normativas y cumplimiento</a></li>
+      <li><a href="#risks">Riesgos y pendientes abiertos</a></li>
+      <li><a href="#glossary">Glosario</a></li>
+    </ol>
+  </div>
+
+  <section id="overview">
+    <h2><span class="num">01</span>Qué es este sistema</h2>
+    <p>Es un backend en Node.js/Express que atiende una campaña promocional de la clínica por WhatsApp: registra participantes por chat, asigna al azar uno de los dos beneficios activos, contacta proactivamente a cada persona dentro de una ventana de 3 a 6 horas para revelar cuál le tocó, y agenda su cita — todo conversado con un agente de IA (Gemini) que respeta reglas estrictas de veracidad (nunca inventa precios, horarios ni datos del negocio).</p>
+    <p>Un panel de administración en React permite al equipo humano ver participantes, citas, conversaciones y logs, y actuar manualmente (contactar antes de tiempo, eliminar un registro, cambiar estados).</p>
+    <div class="callout note">
+      <span class="callout-label">Alcance</span>
+      <p>El bot solo gestiona la campaña vigente: registro, selección de beneficio, agendamiento y retroalimentación post-cita. Quejas, beneficios ya usados, o citas pagadas nuevas se redirigen a un número de soporte humano.</p>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2><span class="num">02</span>Arquitectura y despliegue</h2>
+    <p>El código vive en un único repositorio, publicado en tres remotos con propósitos distintos:</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Remoto</th><th>Destino</th><th>Propósito</th></tr>
+        <tr><td><code>origin</code></td><td>Azure DevOps — BB-APP/BBAPP/customer-platform</td><td>Repositorio principal de trabajo</td></tr>
+        <tr><td><code>github</code></td><td>github.com/restrepos13/BotCenter-con-IA</td><td>Copia personal en GitHub</td></tr>
+        <tr><td><code>vercel</code></td><td>github.com/Bbapp-pages/customer-platform</td><td>Fuente que Vercel construye para el dashboard</td></tr>
+      </table>
+    </div>
+
+    <h3>Topología en producción</h3>
+    <div class="arch">
+      <div class="arch-row-label">Cliente</div>
+      <div class="arch-node"><span class="t">Navegador admin</span><b>Dashboard React</b><span class="d">customer-platform-two.vercel.app</span></div>
+      <div class="arch-node"><span class="t">Cliente final</span><b>WhatsApp</b><span class="d">número Business de la clínica</span></div>
+      <div></div>
+
+      <div class="arch-row-label">Borde / mensajería</div>
+      <div class="arch-node"><span class="t">Vercel</span><b>Rewrite estático + proxy /api</b><span class="d">vercel.json → EC2</span></div>
+      <div class="arch-node"><span class="t">Meta / Twilio</span><b>WhatsApp Business Platform</b><span class="d">BSP: Twilio</span></div>
+      <div></div>
+
+      <div class="arch-row-label">Servidor (AWS EC2 — 54.82.228.36)</div>
+      <div class="arch-node"><span class="t">nginx</span><b>Estático + reverse proxy</b><span class="d">/api → :3000</span></div>
+      <div class="arch-node"><span class="t">pm2</span><b>Express (server.js)</b><span class="d">API, webhook, agente Gemini, crons</span></div>
+      <div class="arch-node"><span class="t">mongod local</span><b>MongoDB 7.0</b><span class="d">whatsapp_ai</span></div>
+    </div>
+
+    <h3>Procesos en segundo plano</h3>
+    <ul>
+      <li><code>campaignFollowUp.job.js</code> — cada 15 min, revisa participantes <code>SELECTED</code> y contacta a quienes ya cumplieron su ventana de 3–6h, solo dentro del horario de contacto permitido (nunca domingo).</li>
+      <li><code>appointmentLifecycle.job.js</code> — cada 15 min, gestiona expiración/seguimiento de citas.</li>
+    </ul>
+    <div class="callout risk">
+      <span class="callout-label">Importante</span>
+      <p>Estos crons corren dentro del mismo proceso del servidor. Si hay más de una instancia corriendo contra la misma base de datos, cada una dispara su propio cron — riesgo real de contactos duplicados. Debe correr una sola instancia (ya resuelto en AWS con pm2 + una sola copia).</p>
+    </div>
+  </section>
+
+  <section id="data">
+    <h2><span class="num">03</span>Modelo de datos</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Colección</th><th>Qué guarda</th><th>Campos clave</th></tr>
+        <tr><td><code>campaigns</code></td><td>La campaña activa y sus servicios elegibles</td><td>name, services[], firstBookingDate, active</td></tr>
+        <tr><td><code>participants</code></td><td>Cada persona registrada en una campaña</td><td>status, prize.service, selectedAt, contactedAt, skinConcern</td></tr>
+        <tr><td><code>customers</code></td><td>Identidad por teléfono, compartida entre campañas y agenda</td><td>phone (único), name, email</td></tr>
+        <tr><td><code>conversations</code> / <code>messages</code></td><td>Historial de chat de WhatsApp por cliente</td><td>customer, status, sender, message</td></tr>
+        <tr><td><code>appointments</code></td><td>Citas agendadas (campaña o agenda general)</td><td>status, startTime, feedbackResult</td></tr>
+        <tr><td><code>admins</code></td><td>Cuentas del panel</td><td>email (único), role</td></tr>
+        <tr><td><code>systemlogs</code></td><td>Errores registrados (webhook, envío, IA)</td><td>type, message, meta</td></tr>
+      </table>
+    </div>
+    <p><strong>Estados de un participante:</strong> <code>REGISTERED → SELECTED → CONTACTED → SCHEDULED → ATTENDED</code>, con salidas a <code>NO_SHOW</code>, <code>CANCELLED</code> o <code>EXPIRED</code>.</p>
+  </section>
+
+  <section id="flows">
+    <h2><span class="num">04</span>Flujos principales</h2>
+
+    <h3>Registro por chat</h3>
+    <p>El cliente escribe al número; si no es participante, la IA le explica la campaña, pide nombre, documento y correo, y llama a <code>register_participant</code>. El sistema le asigna un servicio al azar pero nunca revela cuál — solo confirma que quedó en el proceso de selección y le pregunta, como segmentación comercial, qué le gustaría mejorar en su piel.</p>
+
+    <h3>Contacto proactivo</h3>
+    <p>Entre 3 y 6 horas después del registro (retraso distinto por persona, para no contactar a todos a la vez), y solo dentro del horario permitido, el sistema envía la plantilla aprobada de WhatsApp revelando el tratamiento y ofreciendo agendar.</p>
+
+    <h3>Agendamiento</h3>
+    <p>La IA solo ofrece horarios reales devueltos por <code>get_available_slots</code> (nunca inventa disponibilidad), respetando cupos diarios por servicio y por clínica, y excluyendo domingos.</p>
+
+    <h3>Eliminación de un participante</h3>
+    <p>Borrar un participante desde el panel elimina también su conversación y mensajes asociados — no debe quedar historial que la IA pueda "recordar" de alguien que ya no está en la base de datos.</p>
+  </section>
+
+  <section id="env">
+    <h2><span class="num">05</span>Configuración y variables de entorno</h2>
+    <p>Ninguna se expone aquí con su valor real — esta tabla documenta su propósito, no sus secretos.</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Variable</th><th>Propósito</th></tr>
+        <tr><td><code>MONGODB_URI</code></td><td>Conexión a MongoDB (en AWS, instancia local en el propio servidor)</td></tr>
+        <tr><td><code>GEMINI_API_KEY</code> / <code>GEMINI_MODEL</code></td><td>Credenciales y modelo del agente de IA</td></tr>
+        <tr><td><code>WHATSAPP_PROVIDER</code></td><td><code>mock</code> (pruebas) o <code>twilio</code> (envío/recepción real)</td></tr>
+        <tr><td><code>TWILIO_ACCOUNT_SID</code> / <code>TWILIO_AUTH_TOKEN</code></td><td>Credenciales de la cuenta de Twilio</td></tr>
+        <tr><td><code>TWILIO_WHATSAPP_NUMBER</code></td><td>Número emisor de WhatsApp Business</td></tr>
+        <tr><td><code>TWILIO_CONTACT_TEMPLATE_SID</code> / <code>TWILIO_FEEDBACK_TEMPLATE_SID</code></td><td>Plantillas aprobadas por Meta para mensajes fuera de la ventana de 24h</td></tr>
+        <tr><td><code>RESEND_API_KEY</code> / <code>EMAIL_FROM</code></td><td>Envío de correos de confirmación (Resend)</td></tr>
+        <tr><td><code>JWT_SECRET</code> / <code>JWT_EXPIRES_IN</code></td><td>Sesión del panel de administración</td></tr>
+        <tr><td><code>ADMIN_SIGNUP_CODE</code></td><td>Código requerido para crear una cuenta de admin nueva</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="dashboard">
+    <h2><span class="num">06</span>Panel de administración</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Ruta</th><th>Función</th></tr>
+        <tr><td><code>/participants</code></td><td>CRUD de participantes, paginado de 10, contactar ahora, eliminar</td></tr>
+        <tr><td><code>/conversations</code></td><td>Historial de chat por cliente, con eliminación</td></tr>
+        <tr><td><code>/appointments</code> / <code>/agenda</code></td><td>Citas de campaña y agenda general</td></tr>
+        <tr><td><code>/campaigns</code></td><td>Configuración de campañas y servicios</td></tr>
+        <tr><td><code>/logs</code></td><td>Errores del sistema</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="compliance" class="compliance">
+    <h2><span class="num">07</span>Normativas y cumplimiento</h2>
+    <div class="callout compliance">
+      <span class="callout-label">Antes de leer esta sección</span>
+      <p>Esto es un punto de partida operativo, no asesoría legal. Para Costa Rica y para las políticas de Meta, confirma cada punto con un abogado y con la documentación oficial vigente de Meta — ambas cambian con frecuencia.</p>
+    </div>
+
+    <h3>Meta / WhatsApp Business Platform</h3>
+    <ul>
+      <li><strong>Ventana de 24 horas:</strong> solo se puede responder libremente dentro de las 24h desde el último mensaje del cliente. Fuera de esa ventana (como el contacto proactivo de la campaña), es obligatorio usar una plantilla ("template message") pre-aprobada por Meta — de ahí <code>TWILIO_CONTACT_TEMPLATE_SID</code>.</li>
+      <li><strong>Opt-in explícito:</strong> la persona debe haber iniciado el contacto o haber dado consentimiento verificable antes de recibir mensajes de plantilla. El registro por chat cumple esto porque el cliente escribe primero.</li>
+      <li><strong>No disfrazar la automatización como humana.</strong> Meta prohíbe expresamente "automatizaciones que imitan la actividad humana". El retraso aleatorio de 3–6h en el contacto proactivo se diseñó para dar un ritmo realista, no para engañar — pero conviene documentar internamente esa intención y evitar cualquier lenguaje que sugiera que un humano está escribiendo en tiempo real si no es así.</li>
+      <li><strong>Verificación del negocio</strong> (Meta Business Verification) para mantener el estado "Online" y el rating de calidad del sender.</li>
+    </ul>
+
+    <h3>Publicidad (Meta Ads)</h3>
+    <ul>
+      <li>Los anuncios de "Click to WhatsApp" requieren que la cuenta de anuncios y la WABA estén en el mismo Business Manager, o que la WABA se comparta explícitamente entre ambos.</li>
+      <li>Tratamientos estéticos suelen caer bajo revisión reforzada de Meta: evitar afirmaciones de resultados garantizados, comparaciones de antes/después sin contexto, y verificar si el rubro requiere categoría especial de anuncio según el país.</li>
+      <li>Una cuenta de anuncios restringida por "integridad de la cuenta" bloquea creación de anuncios y uso de públicos hasta que se apele en Calidad de la cuenta (Account Quality).</li>
+    </ul>
+
+    <h3>Protección de datos personales — Costa Rica</h3>
+    <ul>
+      <li><strong>Ley N° 8968</strong> (Protección de la Persona frente al tratamiento de sus datos personales) exige consentimiento informado para recolectar nombre, cédula, correo y teléfono — los mismos datos que <code>register_participant</code> solicita.</li>
+      <li>Bases de datos con datos personales pueden requerir inscripción ante <strong>PRODHAB</strong> (Agencia de Protección de Datos de los Habitantes), según el volumen y uso.</li>
+      <li>El sistema ya soporta el derecho de eliminación: borrar un participante desde el panel elimina también su conversación — pero conviene tener un proceso documentado para atender solicitudes de eliminación que lleguen directamente del cliente, no solo desde el panel.</li>
+    </ul>
+
+    <h3>Datos de salud / estética</h3>
+    <p>Aunque son tratamientos cosméticos y no clínicos, la pregunta de segmentación ("qué te gustaría mejorar en tu piel") recolecta una preferencia de salud/estética. Tratarla con el mismo cuidado que un dato sensible — minimizar retención, no compartirla fuera del uso comercial declarado al participante.</p>
+  </section>
+
+  <section id="risks" class="risks">
+    <h2><span class="num">08</span>Riesgos y pendientes abiertos</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Pendiente</th><th>Impacto</th></tr>
+        <tr><td>Sin dominio ni HTTPS en el servidor de AWS</td><td>Bloquea activar <code>WHATSAPP_PROVIDER=twilio</code> en producción real — Meta exige HTTPS válido para el webhook</td></tr>
+        <tr><td>Cuenta de anuncios de Meta restringida (11 ago. 2026)</td><td>No se pueden crear ni publicar anuncios, ni usar públicos, hasta apelar en Calidad de la cuenta</td></tr>
+        <tr><td>Plan Hobby de Vercel + repo antes privado</td><td>Resuelto: el repo se hizo público para permitir el deployment</td></tr>
+        <tr><td>Una sola instancia del backend debe estar corriendo</td><td>Instancias duplicadas disparan crons duplicados sobre la misma base de datos</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="glossary">
+    <h2><span class="num">09</span>Glosario</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Término</th><th>Significado</th></tr>
+        <tr><td>WABA</td><td>WhatsApp Business Account — la cuenta de Meta detrás del número</td></tr>
+        <tr><td>BSP</td><td>Business Solution Provider — el proveedor técnico (aquí, Twilio) que conecta el número a la API de Meta</td></tr>
+        <tr><td>Template message</td><td>Mensaje de plantilla pre-aprobado por Meta, único medio válido para escribirle primero a un cliente fuera de la ventana de 24h</td></tr>
+        <tr><td>PRODHAB</td><td>Agencia costarricense de Protección de Datos de los Habitantes</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    <span>Más Salud LATAM · whatsapp-ai-backend</span>
+    <span>Generado para uso interno</span>
+  </div>
+</div>
