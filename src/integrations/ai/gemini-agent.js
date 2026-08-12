@@ -8,7 +8,9 @@ const campaignBooking = require('../../services/campaignBooking.service');
 const {
   CLINIC_UTC_OFFSET,
   CLINIC_WEBSITE,
+  CLINIC_PHONE,
   CLINIC_SUPPORT_PHONE,
+  CLINIC_ADDRESS,
 } = require('../../config/campaignSchedule.constants');
 const { toClinicWallClock, addClinicDays } = require('../../utils/clinicTime');
 
@@ -120,6 +122,34 @@ const TOOLS = [
     handler: ({ name, documentId, email, phone }) =>
       campaignBooking.registerParticipantViaChat({ phone, name, documentId, email }),
   },
+  {
+    name: 'record_skin_concern',
+    description:
+      'Registra qué le gustaría mejorar principalmente en su piel a un cliente recién registrado, cuando responde la pregunta de segmentación. Llámala una sola vez por cliente, solo si respondió esa pregunta.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        concern: {
+          type: 'string',
+          enum: [
+            'MANCHAS_PIGMENTACION',
+            'CICATRICES_ACNE',
+            'ARRUGAS_LINEAS',
+            'TEXTURA_POROS',
+            'REJUVENECIMIENTO_GENERAL',
+            'OTRO',
+          ],
+        },
+        detail: {
+          type: 'string',
+          description: 'Lo que el cliente dijo en sus palabras, sobre todo si eligió OTRO',
+        },
+      },
+      required: ['concern'],
+    },
+    handler: ({ concern, detail, phone }) =>
+      campaignBooking.recordSkinConcern({ phone, concern, detail }),
+  },
 ];
 
 const TOOLS_BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
@@ -179,15 +209,33 @@ dato quedó obsoleto (por ejemplo, un administrador pudo haber reiniciado su reg
 de AHORA (not_a_participant) siempre tiene prioridad sobre lo que hayas dicho antes — no le
 digas "ya estabas registrado" ni nada parecido, no menciones ninguna contradicción, simplemente
 trátalo con toda naturalidad como alguien que se registra de nuevo, como si fuera la primera vez.
-Cuéntale que es la campaña de Más Salud y que puede ganar gratis uno de dos beneficios (Hollywood
-Peel o Láser CO₂ fraccionado) — NUNCA le digas cuál de los dos le tocó, eso todavía no se decide
-y se le avisa más adelante cuando lo contactemos. Para participar pídele: nombre completo, número
-de documento de identidad, y correo electrónico (el teléfono ya lo tienes, no lo pidas). No
-avances más de lo que la conversación ya trae — no inventes ni completes ningún dato que el
-cliente no te haya dado explícitamente, y no le preguntes de nuevo un dato que ya te dio. Cuando
-tengas los tres datos, llama a register_participant. Si el registro fue exitoso, dale la
-bienvenida, deséale buena suerte, y dile que pronto lo van a contactar para avisarle qué ganó y
-agendar su cita.`;
+Cuéntale que es la campaña de Más Salud LATAM y que al registrarse entra al proceso de selección
+para obtener GRATIS uno de dos beneficios (Hollywood Peel o Láser CO₂ fraccionado) — NUNCA le
+digas cuál de los dos le tocó ni que "ya ganó", eso todavía no se anuncia y se le avisa más
+adelante cuando lo contactemos. Para participar pídele: nombre completo, número de documento de
+identidad, y correo electrónico (el teléfono ya lo tienes, no lo pidas). No avances más de lo que
+la conversación ya trae — no inventes ni completes ningún dato que el cliente no te haya dado
+explícitamente, y no le preguntes de nuevo un dato que ya te dio. Cuando tengas los tres datos,
+llama a register_participant. Si el registro fue exitoso:
+
+1) Confírmale el registro con un cierre que genere expectativa y deje claro qué sigue — NO lo
+cierres con un simple "gracias". Usa la idea de: quedó registrado/a en el proceso de selección de
+la campaña de tratamientos faciales de Más Salud LATAM, participará por una sesión 100% GRATIS de
+Hollywood Peel o Láser CO₂ fraccionado, y si es seleccionado/a lo van a contactar por este mismo
+WhatsApp para decirle qué tratamiento le tocó y coordinar su cita.
+
+2) Inmediatamente después (mismo turno o el siguiente, sin que se sienta como un formulario),
+pregúntale qué le gustaría mejorar principalmente en su piel, dándole estas opciones numeradas:
+1. Manchas y pigmentación
+2. Cicatrices de acné
+3. Arrugas y líneas de expresión
+4. Textura y poros
+5. Rejuvenecimiento general
+6. Otro
+Cuando responda (por número o en sus palabras), llama a record_skin_concern con el concern que
+mejor corresponda (usa OTRO si no calza en las anteriores) y pon en detail lo que dijo si aporta
+contexto. Esto es solo para conocerlo mejor, nunca lo presentes como obligatorio ni insistas más
+de una vez — si no responde o cambia de tema, sigue la conversación con naturalidad.`;
 };
 
 const buildRebookingRedirect = (eligibility) => {
@@ -221,12 +269,26 @@ ${CLINIC_SUPPORT_PHONE} para que el equipo lo atienda directamente — nunca int
 el problema ni prometas ninguna solución, reprogramación o compensación.`;
 };
 
+// Antes de ser CONTACTED, el participante no debe saber qué premio le tocó (eso se anuncia en el
+// contacto proactivo de campaignFollowUp.job.js). checkEligibility() sí necesita el servicio real
+// para validar el booking internamente, así que el ocultamiento se hace aquí, en lo que ve el
+// modelo — nunca le pasamos el dato en crudo para que no pueda filtrarlo aunque el cliente insista.
+const redactUnrevealedPrize = (eligibility) => {
+  if (eligibility.participant?.status === 'CONTACTED' || !eligibility.service) {
+    return eligibility;
+  }
+
+  return { ...eligibility, service: 'AUN_NO_REVELADO_no_le_digas_al_cliente_cual_es' };
+};
+
 const buildEligibilityFacts = async (phone) => {
   try {
-    const [services, eligibility] = await Promise.all([
+    const [services, rawEligibility] = await Promise.all([
       campaignBooking.listServices(),
       campaignBooking.checkEligibility({ phone }),
     ]);
+
+    const eligibility = redactUnrevealedPrize(rawEligibility);
 
     const followUpConstraint =
       eligibility.participant?.status === 'CONTACTED' ? `\n\n${buildFollowUpDateConstraint()}` : '';
@@ -235,13 +297,25 @@ const buildEligibilityFacts = async (phone) => {
     const feedbackContext = await buildFeedbackContext(phone);
 
     return `Servicios reales de la campaña activa: ${JSON.stringify(services.services)}.
+Dirección de la clínica (única sede, no hay otras): ${CLINIC_ADDRESS}. Teléfono de contacto
+general de la clínica: ${CLINIC_PHONE}. Si el cliente pregunta por la ubicación, cómo llegar, o
+dónde queda la clínica, dale esta dirección directamente de una vez — nunca le preguntes en qué
+ciudad está ni le pidas más contexto para "verificar cobertura", solo hay esta sede y aplica para
+cualquier cliente. Si pregunta por un teléfono para llamar o escribir directamente (no relacionado
+con una mala experiencia en su cita ni con un beneficio ya usado, casos que tienen su propio
+número más abajo), dale este teléfono de contacto general.
 Elegibilidad de este cliente, ya verificada por el sistema EN ESTE MISMO INSTANTE: ${JSON.stringify(eligibility)}.
 Esta información es la verdad actual y tiene prioridad absoluta sobre cualquier cosa que tú
 mismo hayas dicho en turnos anteriores de esta conversación — el estado del cliente puede
-cambiar entre un mensaje y otro (por ejemplo, un administrador puede modificar o reiniciar su
-registro). Si lo que dice esta información no coincide con lo que dijiste antes, no lo
-menciones ni te contradigas en voz alta: simplemente actúa según el dato de ahora. Nunca digas
-que vas a consultar esta información, ni le pidas al cliente su teléfono (ya lo tienes). Si
+cambiar entre un mensaje y otro (por ejemplo, un administrador puede haber borrado su registro,
+reiniciado su participación, o cancelado su cita). Esto aplica a CUALQUIER dato específico que
+hayas mencionado antes y que ya no aparezca aquí o aparezca distinto: qué premio le tocó, si está
+registrado, la fecha/hora de su cita, o el estado de su beneficio. Si el cliente te pregunta por
+o insiste en algo que tú mismo dijiste en un turno anterior pero que esta información de ahora no
+confirma, NUNCA lo reafirmes ni lo repitas solo porque está en el historial — pregúntale con
+naturalidad los datos que necesites de nuevo como si fuera la primera vez, sin explicarle por qué.
+No lo menciones ni te contradigas en voz alta: simplemente actúa según el dato de ahora. Nunca
+digas que vas a consultar esta información, ni le pidas al cliente su teléfono (ya lo tienes). Si
 "eligible" es false, exhibe honestamente el motivo sin inventar una cita ni un beneficio.
 Recuerda resaltar seguido que el beneficio es 100% GRATIS.
 Cuando confirmes con éxito que una cita quedó agendada, después de la confirmación ofrécele una

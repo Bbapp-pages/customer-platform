@@ -17,5 +17,6 @@ router.delete('/participants/:id', adminController.deleteParticipant);
 router.get('/logs', adminController.getLogs);
 router.get('/conversations', adminController.getConversations);
 router.get('/conversations/:id/messages', adminController.getConversationMessages);
+router.delete('/conversations/:id', adminController.deleteConversation);
 
 module.exports = router;

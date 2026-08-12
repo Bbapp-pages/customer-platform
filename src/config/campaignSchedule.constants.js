@@ -5,10 +5,13 @@ const CLINIC_UTC_OFFSET = '-06:00';
 
 const CLINIC_NAME = 'MÁS SALUD';
 
-// TODO: reemplazar con la dirección real de la clínica.
-const CLINIC_ADDRESS = 'Costa Rica, Uruca, 250 mts este del Hotel Irazu';
+const CLINIC_ADDRESS =
+  'San José, Costa Rica, Avenida 27, sector de Robledal, en La Uruca (250 metros este del Hotel Irazú)';
 
 const CLINIC_WEBSITE = 'https://mssocios.com/product-category/todos-los-productos/';
+
+// Teléfono de contacto general de la clínica (el que se da cuando preguntan cómo comunicarse).
+const CLINIC_PHONE = '+506 4000-0760';
 
 // Número al que se redirige a un cliente cuando: (1) tuvo una mala experiencia
 // en su cita y necesita contarlo, o (2) ya usó su beneficio gratuito y quiere
@@ -59,6 +62,7 @@ module.exports = {
   CLINIC_NAME,
   CLINIC_ADDRESS,
   CLINIC_WEBSITE,
+  CLINIC_PHONE,
   CLINIC_SUPPORT_PHONE,
   SCHEDULE_CUTOVER_DATE,
   TOTAL_DAILY_CAP,

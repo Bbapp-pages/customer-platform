@@ -298,6 +298,28 @@ const getConversationMessages = async (req, res, next) => {
   }
 };
 
+// Borra la conversación completa (y sus mensajes) de un cliente. No borra al Customer ni a un
+// eventual Participant — solo el historial de chat, que es lo que Gemini usa como memoria y no
+// debe sobrevivir a un cliente que ya no está en la base de datos.
+const deleteConversation = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const conversation = await Conversation.findById(id);
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+
+    await Message.deleteMany({ conversation: id });
+    await Conversation.deleteOne({ _id: id });
+
+    return res.status(200).json({ success: true, message: 'Conversation deleted successfully' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const contactParticipantNow = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -389,6 +411,13 @@ const deleteParticipant = async (req, res, next) => {
       await Appointment.deleteOne({ _id: participant.appointment });
     }
 
+    const customer = await Customer.findOne({ phone: participant.phone });
+    if (customer) {
+      const conversations = await Conversation.find({ customer: customer._id }).select('_id');
+      await Message.deleteMany({ conversation: { $in: conversations.map((c) => c._id) } });
+      await Conversation.deleteMany({ customer: customer._id });
+    }
+
     await Participant.deleteOne({ _id: id });
 
     return res.status(200).json({ success: true, message: 'Participant deleted successfully' });
@@ -408,4 +437,5 @@ module.exports = {
   getLogs,
   getConversations,
   getConversationMessages,
+  deleteConversation,
 };

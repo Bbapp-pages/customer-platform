@@ -9,7 +9,7 @@ const {
   TOTAL_DAILY_CAP,
   getBusinessHoursForDate,
 } = require('../config/campaignSchedule.constants');
-const { toClinicWallClock, fromClinicWallClock } = require('../utils/clinicTime');
+const { toClinicWallClock, fromClinicWallClock, addClinicDays } = require('../utils/clinicTime');
 const notificationService = require('./notification.service');
 const systemLogService = require('./systemLog.service');
 
@@ -124,6 +124,10 @@ const getAvailableSlots = async ({ serviceCode, date, excludeAppointmentId }) =>
 
   if (!service) {
     return { available: false, slots: [], reason: 'service_not_in_campaign' };
+  }
+
+  if (addClinicDays(date, 0).weekday === 0) {
+    return { available: false, slots: [], reason: 'closed_sunday' };
   }
 
   const dayStart = fromClinicWallClock(date, '00:00');
@@ -464,6 +468,28 @@ const recordAppointmentFeedback = async ({ phone, result, comment }) => {
   return { success: true, result };
 };
 
+// Pregunta de segmentación comercial que se hace justo después del registro exitoso — no
+// bloquea nada del flujo de campaña, solo alimenta el seguimiento comercial posterior.
+const recordSkinConcern = async ({ phone, concern, detail }) => {
+  const campaign = await getActiveCampaign();
+
+  if (!campaign) {
+    return { success: false, error: 'no_active_campaign' };
+  }
+
+  const participant = await findParticipantByPhone(campaign._id, phone);
+
+  if (!participant) {
+    return { success: false, error: 'not_a_participant' };
+  }
+
+  participant.skinConcern = concern;
+  participant.skinConcernDetail = detail || '';
+  await participant.save();
+
+  return { success: true };
+};
+
 module.exports = {
   getActiveCampaign,
   listServices,
@@ -475,4 +501,5 @@ module.exports = {
   registerParticipantViaChat,
   findPendingFeedbackSummary,
   recordAppointmentFeedback,
+  recordSkinConcern,
 };

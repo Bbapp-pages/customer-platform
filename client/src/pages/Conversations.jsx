@@ -19,24 +19,51 @@ export default function Conversations() {
   const [selectedId, setSelectedId] = useState(null);
   const [thread, setThread] = useState(null);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => setPagination((p) => ({ ...p, page: 1 })), 250);
     return () => clearTimeout(timeout);
   }, [search]);
 
-  useEffect(() => {
-    setLoading(true);
+  const loadConversations = () =>
     api
       .get('/admin/conversations', {
-        params: { page: pagination.page, limit: 20, q: search || undefined },
+        params: { page: pagination.page, limit: 10, q: search || undefined },
       })
       .then((res) => {
         setConversations(res.data.data);
         setPagination(res.data.pagination);
-      })
-      .finally(() => setLoading(false));
+      });
+
+  useEffect(() => {
+    setLoading(true);
+    loadConversations().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, search]);
+
+  const handleDelete = async (conversation) => {
+    const confirmed = window.confirm(
+      `¿Seguro que quieres eliminar la conversación con ${conversation.customer?.name || conversation.customer?.phone || 'este cliente'}? Se borran todos sus mensajes de forma permanente y no se puede deshacer.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(conversation._id);
+
+    try {
+      await api.delete(`/admin/conversations/${conversation._id}`);
+      if (selectedId === conversation._id) {
+        setSelectedId(null);
+      }
+      await loadConversations();
+    } catch (err) {
+      window.alert(err.response?.data?.message || 'No se pudo eliminar la conversación');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!selectedId) {
@@ -89,25 +116,43 @@ export default function Conversations() {
               const preview = conversation.lastMessage;
 
               return (
-                <button
+                <div
                   key={conversation._id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedId(conversation._id)}
-                  className="block w-full border-b px-4 py-3 text-left"
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedId(conversation._id)}
+                  className="block w-full cursor-pointer border-b px-4 py-3 text-left"
                   style={{
                     borderColor: 'var(--border)',
                     background: isActive ? 'var(--accent-bg, rgba(0,0,0,0.04))' : 'transparent',
                   }}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium" style={{ color: 'var(--ink)' }}>
                       {conversation.customer?.name || conversation.customer?.phone || 'Desconocido'}
                     </span>
-                    <span
-                      className="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase"
-                      style={{ color: 'var(--ink-muted)', border: '1px solid var(--border)' }}
-                    >
-                      {conversation.status}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase"
+                        style={{ color: 'var(--ink-muted)', border: '1px solid var(--border)' }}
+                      >
+                        {conversation.status}
+                      </span>
+                      <button
+                        type="button"
+                        title="Eliminar conversación"
+                        disabled={deletingId === conversation._id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(conversation);
+                        }}
+                        className="rounded-full px-1.5 py-0.5 text-xs disabled:opacity-50"
+                        style={{ color: '#dc2626' }}
+                      >
+                        🗑
+                      </button>
+                    </div>
                   </div>
                   <p className="mt-0.5 text-xs" style={{ color: 'var(--ink-muted)' }}>
                     {conversation.customer?.phone}
@@ -127,7 +172,7 @@ export default function Conversations() {
                       {new Date(conversation.lastMessageAt).toLocaleString()}
                     </p>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>

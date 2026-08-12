@@ -8,12 +8,12 @@ const { toClinicWallClock, addClinicDays } = require('../utils/clinicTime');
 const { getCampaignContactHours } = require('../config/campaignSchedule.constants');
 
 const CONTACT_DELAY_MIN_MS = 3 * 60 * 60 * 1000;
-const CONTACT_DELAY_MAX_MS = 5 * 60 * 60 * 1000;
+const CONTACT_DELAY_MAX_MS = 6 * 60 * 60 * 1000;
 
 const isWithinContactHours = (time, hours) =>
   hours.some((range) => time >= range.start && time < range.end);
 
-// Cada participante espera una cantidad distinta dentro de 3-5h (derivada de su
+// Cada participante espera una cantidad distinta dentro de 3-6h (derivada de su
 // propio id, estable entre corridas del cron) — simula que no todos se contactan
 // exactamente al mismo tiempo, como haría una persona real.
 const getContactDelayMs = (participantId) => {
@@ -24,7 +24,7 @@ const getContactDelayMs = (participantId) => {
 
 // Envía el mensaje real de "ya ganaste" a un participante puntual y actualiza su
 // estado. La usan tanto el cron automático como el botón "Contactar ahora" del
-// dashboard (que se salta la espera de 3-5h y el horario, por ser una acción
+// dashboard (que se salta la espera de 3-6h y el horario, por ser una acción
 // manual explícita del admin).
 const contactParticipant = async (participant) => {
   await twilioProvider.sendTemplateMessage({

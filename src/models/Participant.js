@@ -78,6 +78,25 @@
         default: null,
         },
 
+        skinConcern: {
+        type: String,
+        enum: [
+            'MANCHAS_PIGMENTACION',
+            'CICATRICES_ACNE',
+            'ARRUGAS_LINEAS',
+            'TEXTURA_POROS',
+            'REJUVENECIMIENTO_GENERAL',
+            'OTRO',
+        ],
+        default: null,
+        },
+
+        skinConcernDetail: {
+        type: String,
+        trim: true,
+        default: null,
+        },
+
         contactedAt: {
         type: Date,
         default: null,

@@ -14,6 +14,15 @@ const STATUSES = [
   'EXPIRED',
 ];
 
+const SKIN_CONCERN_LABELS = {
+  MANCHAS_PIGMENTACION: 'Manchas y pigmentación',
+  CICATRICES_ACNE: 'Cicatrices de acné',
+  ARRUGAS_LINEAS: 'Arrugas y líneas de expresión',
+  TEXTURA_POROS: 'Textura y poros',
+  REJUVENECIMIENTO_GENERAL: 'Rejuvenecimiento general',
+  OTRO: 'Otro',
+};
+
 export default function Participants() {
   const [participants, setParticipants] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
@@ -183,6 +192,7 @@ export default function Participants() {
               <th className="px-4 py-3 font-medium">Teléfono</th>
               <th className="px-4 py-3 font-medium">Campaña</th>
               <th className="px-4 py-3 font-medium">Premio</th>
+              <th className="px-4 py-3 font-medium">Interés</th>
               <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
@@ -191,7 +201,7 @@ export default function Participants() {
             {!loading && participants.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-6 text-center"
                   style={{ color: 'var(--ink-muted)' }}
                 >
@@ -216,6 +226,9 @@ export default function Participants() {
                 </td>
                 <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
                   {participant.prize?.service?.name || '—'}
+                </td>
+                <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
+                  {SKIN_CONCERN_LABELS[participant.skinConcern] || '—'}
                 </td>
                 <td className="px-4 py-3">
                   <select
