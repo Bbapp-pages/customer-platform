@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
-import { useAuth } from '../context/AuthContext';
 import AppointmentModal from '../components/AppointmentModal';
 import {
   addDays,
@@ -29,8 +28,6 @@ const STATUS_COLOR = {
 };
 
 export default function Agenda() {
-  const { admin } = useAuth();
-  const canCreate = admin?.role === 'admin';
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -158,15 +155,13 @@ export default function Agenda() {
           >
             ›
           </button>
-          {canCreate && (
-            <button
-              onClick={() => openCreateAt(new Date(), new Date().getHours(), 0)}
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-white"
-              style={{ background: 'var(--accent)' }}
-            >
-              + Nueva cita
-            </button>
-          )}
+          <button
+            onClick={() => openCreateAt(new Date(), new Date().getHours(), 0)}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-white"
+            style={{ background: 'var(--accent)' }}
+          >
+            + Nueva cita
+          </button>
         </div>
       </div>
 
@@ -213,16 +208,14 @@ export default function Agenda() {
                 <div key={hour} style={{ height: HOUR_HEIGHT }} className="flex flex-col">
                   <button
                     type="button"
-                    disabled={!canCreate}
-                    onClick={() => canCreate && openCreateAt(day, hour, 0)}
-                    className="h-1/2 w-full border-t disabled:cursor-default hover:enabled:opacity-70"
+                    onClick={() => openCreateAt(day, hour, 0)}
+                    className="h-1/2 w-full border-t hover:opacity-70"
                     style={{ borderColor: 'var(--border)' }}
                   />
                   <button
                     type="button"
-                    disabled={!canCreate}
-                    onClick={() => canCreate && openCreateAt(day, hour, 30)}
-                    className="h-1/2 w-full disabled:cursor-default hover:enabled:opacity-70"
+                    onClick={() => openCreateAt(day, hour, 30)}
+                    className="h-1/2 w-full hover:opacity-70"
                   />
                 </div>
               ))}

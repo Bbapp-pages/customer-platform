@@ -107,6 +107,23 @@ const checkEligibility = async ({ phone }) => {
   };
 };
 
+// Cada hora reloj (9-10, 10-11, etc.) queda dedicada a un solo servicio —
+// nunca dos tratamientos distintos en la misma hora (ej. Hollywood Peel no
+// puede caer en la misma hora que Láser CO₂) — alternando de forma fija
+// entre los servicios activos de la campaña, en el orden en que están
+// guardados en campaign.services. Es intencionalmente fijo por hora del
+// reloj (no por posición dentro de cada bloque horario), así que no
+// importa si cambia el horario de atención (BUSINESS_HOURS_*) ni el punto
+// de corte (SCHEDULE_CUTOVER_DATE) — la asignación hora→servicio no se
+// recalcula, es la misma todos los días.
+const getServiceCodeForHour = (hour, activeServices) => {
+  if (activeServices.length === 0) {
+    return null;
+  }
+
+  return activeServices[hour % activeServices.length].code;
+};
+
 // Los cupos diarios (20/servicio, 40 total) son mayores que la cantidad de
 // franjas de 30 min disponibles en el día, así que varios pacientes SÍ
 // comparten la misma franja horaria a propósito (varios profesionales en
@@ -160,6 +177,7 @@ const getAvailableSlots = async ({ serviceCode, date, excludeAppointmentId }) =>
     return { available: false, slots: [], reason: 'service_full' };
   }
 
+  const activeServices = campaign.services.filter((s) => s.active);
   const now = toClinicWallClock(new Date());
   const slots = [];
 
@@ -168,6 +186,12 @@ const getAvailableSlots = async ({ serviceCode, date, excludeAppointmentId }) =>
     const endMin = timeToMinutes(window.end);
 
     for (let t = startMin; t + service.durationMinutes <= endMin; t += service.durationMinutes) {
+      const hour = Math.floor(t / 60);
+
+      if (getServiceCodeForHour(hour, activeServices) !== service.code) {
+        continue;
+      }
+
       const slotTime = minutesToTime(t);
 
       if (date === now.date && slotTime <= now.time) {

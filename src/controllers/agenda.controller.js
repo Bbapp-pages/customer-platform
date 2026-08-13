@@ -4,6 +4,7 @@ const Service = require('../models/service');
 const Employee = require('../models/Employee');
 const { toClinicWallClock } = require('../utils/clinicTime');
 const notificationService = require('../services/notification.service');
+const { notifyAdmins } = require('../services/adminNotification.service');
 const systemLogService = require('../services/systemLog.service');
 
 const MAX_RANGE_APPOINTMENTS = 1000;
@@ -166,6 +167,15 @@ const createAppointment = async (req, res, next) => {
         });
       });
 
+    if (req.admin.role === 'receptionist') {
+      await notifyAdmins({
+        type: 'appointment_created',
+        message: `${req.admin.name} (recepcionista) creó una cita nueva para ${resolvedCustomer.name} el ${date} a las ${time} (${service.name}).`,
+        actor: { id: req.admin._id, name: req.admin.name, email: req.admin.email, role: req.admin.role },
+        appointmentId: appointment._id,
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Appointment created successfully',
@@ -249,6 +259,16 @@ const updateAppointment = async (req, res, next) => {
       { path: 'service', select: 'name price durationMinutes' },
       { path: 'employee', select: 'name' },
     ]);
+
+    if (req.admin.role === 'receptionist') {
+      const { date, time } = toClinicWallClock(appointment.startTime);
+      await notifyAdmins({
+        type: 'appointment_modified',
+        message: `${req.admin.name} (recepcionista) modificó la cita de ${appointment.customer?.name || 'un paciente'} — ahora es el ${date} a las ${time} (${appointment.service?.name || 'servicio'}), estado: ${appointment.status}.`,
+        actor: { id: req.admin._id, name: req.admin.name, email: req.admin.email, role: req.admin.role },
+        appointmentId: appointment._id,
+      });
+    }
 
     return res.status(200).json({
       success: true,

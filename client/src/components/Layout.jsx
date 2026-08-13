@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Resumen', roles: ['admin'] },
@@ -9,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/campaigns', label: 'Campañas', roles: ['admin'] },
   { to: '/conversations', label: 'Conversaciones', roles: ['admin'] },
   { to: '/logs', label: 'Actividad', roles: ['admin'] },
+  { to: '/notificaciones', label: 'Notificaciones', roles: ['admin'] },
   { to: '/usuarios', label: 'Usuarios', roles: ['admin'] },
 ];
 
@@ -16,6 +18,7 @@ const ROLE_LABEL = { admin: 'Admin', receptionist: 'Recepcionista' };
 
 export default function Layout() {
   const { admin, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const visibleNavItems = NAV_ITEMS.filter((item) => item.roles.includes(admin?.role));
 
   return (
@@ -47,7 +50,17 @@ export default function Layout() {
                 color: isActive ? '#ffffff' : 'var(--ink-secondary)',
               })}
             >
-              {item.label}
+              <span className="flex items-center justify-between gap-2">
+                {item.label}
+                {item.to === '/notificaciones' && unreadCount > 0 && (
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                    style={{ color: 'var(--status-critical)', background: 'var(--status-critical-bg)' }}
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </span>
             </NavLink>
           ))}
         </nav>

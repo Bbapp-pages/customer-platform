@@ -12,7 +12,7 @@ router.use(protect);
 router.use(restrictTo('admin', 'receptionist'));
 
 router.get('/appointments', agendaController.getCalendarAppointments);
-router.post('/appointments', restrictTo('admin'), agendaController.createAppointment);
+router.post('/appointments', agendaController.createAppointment);
 router.patch('/appointments/:id', agendaController.updateAppointment);
 
 router.get('/services', agendaController.getServices);

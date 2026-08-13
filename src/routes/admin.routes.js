@@ -26,4 +26,8 @@ router.get('/users', adminController.getUsers);
 router.post('/users', adminController.createUser);
 router.patch('/users/:id', adminController.updateUser);
 
+router.get('/notifications', adminController.getNotifications);
+router.patch('/notifications/:id/read', adminController.markNotificationRead);
+router.post('/notifications/mark-all-read', adminController.markAllNotificationsRead);
+
 module.exports = router;

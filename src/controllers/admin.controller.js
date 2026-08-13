@@ -6,6 +6,7 @@ const SystemLog = require('../models/SystemLog');
 const Conversation = require('../models/conversation');
 const Message = require('../models/message');
 const Admin = require('../models/Admin');
+const AdminNotification = require('../models/AdminNotification');
 const { contactParticipant } = require('../jobs/campaignFollowUp.job');
 const systemLogService = require('../services/systemLog.service');
 
@@ -523,6 +524,49 @@ const updateUser = async (req, res, next) => {
   }
 };
 
+const getNotifications = async (req, res, next) => {
+  try {
+    const [notifications, unreadCount] = await Promise.all([
+      AdminNotification.find({}).sort({ createdAt: -1 }).limit(50),
+      AdminNotification.countDocuments({ readBy: { $ne: req.admin._id } }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: notifications,
+      unreadCount,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const markNotificationRead = async (req, res, next) => {
+  try {
+    await AdminNotification.updateOne(
+      { _id: req.params.id },
+      { $addToSet: { readBy: req.admin._id } }
+    );
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const markAllNotificationsRead = async (req, res, next) => {
+  try {
+    await AdminNotification.updateMany(
+      { readBy: { $ne: req.admin._id } },
+      { $addToSet: { readBy: req.admin._id } }
+    );
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getStats,
   getAppointments,
@@ -538,4 +582,7 @@ module.exports = {
   getUsers,
   createUser,
   updateUser,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
 };

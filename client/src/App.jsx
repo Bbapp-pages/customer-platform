@@ -11,6 +11,7 @@ import Participants from './pages/Participants';
 import Campaigns from './pages/Campaigns';
 import Logs from './pages/Logs';
 import Conversations from './pages/Conversations';
+import Notifications from './pages/Notifications';
 import Users from './pages/Users';
 import PublicRegister from './pages/PublicRegister';
 
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="campaigns" element={adminOnly(<Campaigns />)} />
         <Route path="conversations" element={adminOnly(<Conversations />)} />
         <Route path="logs" element={adminOnly(<Logs />)} />
+        <Route path="notificaciones" element={adminOnly(<Notifications />)} />
         <Route path="usuarios" element={adminOnly(<Users />)} />
       </Route>
     </Routes>
