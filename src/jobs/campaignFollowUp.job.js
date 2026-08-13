@@ -4,6 +4,7 @@ require('../models/service');
 const env = require('../config/env');
 const twilioProvider = require('../integrations/whatsapp/twilio.provider');
 const systemLogService = require('../services/systemLog.service');
+const systemSettingService = require('../services/systemSetting.service');
 const { toClinicWallClock, addClinicDays } = require('../utils/clinicTime');
 const { getCampaignContactHours } = require('../config/campaignSchedule.constants');
 
@@ -42,6 +43,10 @@ const contactParticipant = async (participant) => {
 };
 
 const runCampaignFollowUp = async () => {
+  if (!(await systemSettingService.isAiEnabled())) {
+    return;
+  }
+
   const clinicNow = toClinicWallClock(new Date());
   const { weekday } = addClinicDays(clinicNow.date, 0);
   const contactHours = getCampaignContactHours(weekday);

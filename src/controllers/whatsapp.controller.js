@@ -5,6 +5,7 @@ const { findOrCreateCustomer } = require('./agenda.controller');
 const geminiAgent = require('../integrations/ai/gemini-agent');
 const whatsappProvider = require('../integrations/whatsapp/twilio.provider');
 const systemLogService = require('../services/systemLog.service');
+const systemSettingService = require('../services/systemSetting.service');
 
 // Twilio espera una respuesta TwiML al webhook, no un 200 de texto plano —
 // si no, intenta interpretar el cuerpo de la respuesta y termina reenviándolo
@@ -86,7 +87,11 @@ const receiveWebhook = async (req, res) => {
 
     let reply = null;
 
-    if (!canProcess) {
+    const aiEnabled = await systemSettingService.isAiEnabled();
+
+    if (!aiEnabled) {
+      // Sistema apagado por un admin: no responder nada (el mensaje del cliente ya quedó guardado arriba).
+    } else if (!canProcess) {
       // Tipo no soportado (video, ubicación, contacto, etc.): no pasa por Gemini.
       reply = UNSUPPORTED_TYPE_REPLY;
     } else if (conversation.status !== 'human') {

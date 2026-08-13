@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/logs', label: 'Actividad', roles: ['admin'] },
   { to: '/notificaciones', label: 'Notificaciones', roles: ['admin'] },
   { to: '/usuarios', label: 'Usuarios', roles: ['admin'] },
+  { to: '/sistema', label: 'Sistema', roles: ['admin'] },
 ];
 
 const ROLE_LABEL = { admin: 'Admin', receptionist: 'Recepcionista' };

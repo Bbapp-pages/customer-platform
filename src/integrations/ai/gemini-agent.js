@@ -13,6 +13,7 @@ const {
   CLINIC_ADDRESS,
 } = require('../../config/campaignSchedule.constants');
 const { toClinicWallClock, addClinicDays } = require('../../utils/clinicTime');
+const customInstructionService = require('../../services/customInstruction.service');
 
 const MAX_TOOL_ROUNDTRIPS = 5;
 
@@ -327,7 +328,7 @@ Indícale al cliente que vas a confirmar con el equipo, sin inventar disponibili
   }
 };
 
-const buildSystemInstruction = (facts) => {
+const buildSystemInstruction = (facts, customInstructionsBlock = '') => {
   const clinicNow = new Intl.DateTimeFormat('es-CO', {
     timeZone: 'America/Bogota',
     weekday: 'long',
@@ -351,7 +352,7 @@ ${facts}
 
 Para consultar horarios reales o para agendar/cancelar/reprogramar SIEMPRE debes invocar
 la función correspondiente en el mismo turno — nunca digas "dame un momento" o "voy a
-verificar" sin llamarla ya.`;
+verificar" sin llamarla ya.${customInstructionsBlock}`;
 };
 
 const mapMessageToContent = (message) => ({
@@ -412,8 +413,11 @@ const runAgentTurn = async ({ phone, messages, media }) => {
   }
 
   const ai = getClient();
-  const facts = await buildEligibilityFacts(phone);
-  const systemInstruction = buildSystemInstruction(facts);
+  const [facts, customInstructionsBlock] = await Promise.all([
+    buildEligibilityFacts(phone),
+    customInstructionService.getCustomInstructionsPromptBlock(),
+  ]);
+  const systemInstruction = buildSystemInstruction(facts, customInstructionsBlock);
 
   let contents = messages.map(mapMessageToContent);
 

@@ -30,4 +30,10 @@ router.get('/notifications', adminController.getNotifications);
 router.patch('/notifications/:id/read', adminController.markNotificationRead);
 router.post('/notifications/mark-all-read', adminController.markAllNotificationsRead);
 
+router.get('/system-status', adminController.getSystemStatus);
+router.patch('/system-status', adminController.updateSystemStatus);
+router.get('/custom-instructions', adminController.getCustomInstructions);
+router.post('/custom-instructions', adminController.createCustomInstruction);
+router.delete('/custom-instructions/:id', adminController.deleteCustomInstruction);
+
 module.exports = router;

@@ -5,6 +5,7 @@ require('../models/customer');
 const env = require('../config/env');
 const twilioProvider = require('../integrations/whatsapp/twilio.provider');
 const systemLogService = require('../services/systemLog.service');
+const systemSettingService = require('../services/systemSetting.service');
 
 const FEEDBACK_DELAY_MS = 60 * 60 * 1000;
 
@@ -70,7 +71,9 @@ const requestPendingFeedback = async () => {
 
 const runAppointmentLifecycle = async () => {
   await markCompletedAppointments();
-  await requestPendingFeedback();
+  if (await systemSettingService.isAiEnabled()) {
+    await requestPendingFeedback();
+  }
 };
 
 module.exports = { runAppointmentLifecycle };

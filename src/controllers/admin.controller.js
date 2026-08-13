@@ -9,6 +9,9 @@ const Admin = require('../models/Admin');
 const AdminNotification = require('../models/AdminNotification');
 const { contactParticipant } = require('../jobs/campaignFollowUp.job');
 const systemLogService = require('../services/systemLog.service');
+const systemSettingService = require('../services/systemSetting.service');
+const customInstructionService = require('../services/customInstruction.service');
+const CustomInstruction = require('../models/CustomInstruction');
 
 const USER_ROLES = ['admin', 'receptionist'];
 
@@ -567,6 +570,83 @@ const markAllNotificationsRead = async (req, res, next) => {
   }
 };
 
+const getSystemStatus = async (req, res, next) => {
+  try {
+    const settings = await systemSettingService.getSettings();
+
+    return res.status(200).json({ success: true, data: { aiEnabled: settings.aiEnabled } });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateSystemStatus = async (req, res, next) => {
+  try {
+    const { aiEnabled } = req.body;
+
+    if (typeof aiEnabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'aiEnabled debe ser true o false' });
+    }
+
+    const settings = await systemSettingService.setAiEnabled(aiEnabled);
+
+    return res.status(200).json({
+      success: true,
+      message: aiEnabled ? 'Sistema activado' : 'Sistema apagado',
+      data: { aiEnabled: settings.aiEnabled },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getCustomInstructions = async (req, res, next) => {
+  try {
+    const rules = await customInstructionService.listCustomInstructions();
+
+    return res.status(200).json({ success: true, data: rules });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const createCustomInstruction = async (req, res, next) => {
+  try {
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'El texto de la instrucción es obligatorio' });
+    }
+
+    const rule = await CustomInstruction.create({
+      text: text.trim(),
+      createdBy: { id: req.admin._id, name: req.admin.name, email: req.admin.email },
+    });
+
+    return res.status(201).json({ success: true, message: 'Instrucción agregada', data: rule });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const deleteCustomInstruction = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const rule = await CustomInstruction.findById(id);
+
+    if (!rule) {
+      return res.status(404).json({ success: false, message: 'Instrucción no encontrada' });
+    }
+
+    await CustomInstruction.deleteOne({ _id: id });
+
+    return res.status(200).json({ success: true, message: 'Instrucción eliminada' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getStats,
   getAppointments,
@@ -585,4 +665,9 @@ module.exports = {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  getSystemStatus,
+  updateSystemStatus,
+  getCustomInstructions,
+  createCustomInstruction,
+  deleteCustomInstruction,
 };

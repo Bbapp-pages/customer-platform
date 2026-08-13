@@ -13,6 +13,7 @@ import Logs from './pages/Logs';
 import Conversations from './pages/Conversations';
 import Notifications from './pages/Notifications';
 import Users from './pages/Users';
+import System from './pages/System';
 import PublicRegister from './pages/PublicRegister';
 
 const adminOnly = (element) => <RoleRoute roles={['admin']}>{element}</RoleRoute>;
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="logs" element={adminOnly(<Logs />)} />
         <Route path="notificaciones" element={adminOnly(<Notifications />)} />
         <Route path="usuarios" element={adminOnly(<Users />)} />
+        <Route path="sistema" element={adminOnly(<System />)} />
       </Route>
     </Routes>
   );
