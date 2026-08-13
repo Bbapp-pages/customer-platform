@@ -107,21 +107,22 @@ const checkEligibility = async ({ phone }) => {
   };
 };
 
-// Cada hora reloj (9-10, 10-11, etc.) queda dedicada a un solo servicio —
-// nunca dos tratamientos distintos en la misma hora (ej. Hollywood Peel no
-// puede caer en la misma hora que Láser CO₂) — alternando de forma fija
-// entre los servicios activos de la campaña, en el orden en que están
-// guardados en campaign.services. Es intencionalmente fijo por hora del
-// reloj (no por posición dentro de cada bloque horario), así que no
-// importa si cambia el horario de atención (BUSINESS_HOURS_*) ni el punto
-// de corte (SCHEDULE_CUTOVER_DATE) — la asignación hora→servicio no se
-// recalcula, es la misma todos los días.
-const getServiceCodeForHour = (hour, activeServices) => {
+// Dentro de cada hora reloj, los servicios activos de la campaña se
+// alternan cada franja (ej. con 2 servicios: el minuto :00 siempre es el
+// primero de campaign.services, el minuto :30 siempre es el segundo) —
+// nunca se deja agendar el mismo servicio dos veces en la misma hora ni
+// en dos franjas seguidas. Se calcula a partir del minuto dentro de la
+// hora (no de la posición dentro del bloque horario), así que sigue
+// alternando igual sin importar si cambia BUSINESS_HOURS_* o el punto de
+// corte SCHEDULE_CUTOVER_DATE.
+const getServiceCodeForSlot = (minuteOfHour, durationMinutes, activeServices) => {
   if (activeServices.length === 0) {
     return null;
   }
 
-  return activeServices[hour % activeServices.length].code;
+  const index = Math.floor(minuteOfHour / durationMinutes);
+
+  return activeServices[index % activeServices.length].code;
 };
 
 // Los cupos diarios (20/servicio, 40 total) son mayores que la cantidad de
@@ -186,9 +187,9 @@ const getAvailableSlots = async ({ serviceCode, date, excludeAppointmentId }) =>
     const endMin = timeToMinutes(window.end);
 
     for (let t = startMin; t + service.durationMinutes <= endMin; t += service.durationMinutes) {
-      const hour = Math.floor(t / 60);
+      const minuteOfHour = t % 60;
 
-      if (getServiceCodeForHour(hour, activeServices) !== service.code) {
+      if (getServiceCodeForSlot(minuteOfHour, service.durationMinutes, activeServices) !== service.code) {
         continue;
       }
 
