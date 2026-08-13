@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api/client';
-import { toDateTimeLocalValue, roundToHalfHour } from '../lib/date';
+import { toISODateOnly, toTimeSelectValue, HALF_HOUR_TIME_OPTIONS } from '../lib/date';
 
 const STATUSES = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
 
@@ -28,9 +28,8 @@ export default function AppointmentModal({
 
   const [serviceId, setServiceId] = useState('');
   const [employeeId, setEmployeeId] = useState('');
-  const [startTime, setStartTime] = useState(
-    toDateTimeLocalValue(initialDate || new Date())
-  );
+  const [dateValue, setDateValue] = useState(toISODateOnly(initialDate || new Date()));
+  const [timeValue, setTimeValue] = useState(toTimeSelectValue(initialDate || new Date()));
   const [status, setStatus] = useState('pending');
   const [notes, setNotes] = useState('');
 
@@ -54,7 +53,8 @@ export default function AppointmentModal({
     setSelectedCustomer(appointment.customer);
     setServiceId(appointment.service?._id || '');
     setEmployeeId(appointment.employee?._id || '');
-    setStartTime(toDateTimeLocalValue(new Date(appointment.startTime)));
+    setDateValue(toISODateOnly(new Date(appointment.startTime)));
+    setTimeValue(toTimeSelectValue(new Date(appointment.startTime)));
     setStatus(appointment.status);
     setNotes(appointment.notes || '');
   }, [mode, appointment]);
@@ -90,6 +90,8 @@ export default function AppointmentModal({
 
     setSubmitting(true);
 
+    const startTime = new Date(`${dateValue}T${timeValue}:00`).toISOString();
+
     try {
       if (mode === 'create') {
         await api.post('/agenda/appointments', {
@@ -97,14 +99,14 @@ export default function AppointmentModal({
           customer: selectedCustomer ? undefined : newCustomer,
           serviceId,
           employeeId: employeeId || undefined,
-          startTime: new Date(startTime).toISOString(),
+          startTime,
           notes,
         });
       } else {
         await api.patch(`/agenda/appointments/${appointment._id}`, {
           serviceId,
           employeeId: employeeId || null,
-          startTime: new Date(startTime).toISOString(),
+          startTime,
           status,
           notes,
         });
@@ -310,21 +312,29 @@ export default function AppointmentModal({
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--ink)' }}>
           Fecha y hora
         </label>
-        <input
-          required
-          type="datetime-local"
-          step={1800}
-          value={startTime}
-          onChange={(e) => {
-            if (!e.target.value) {
-              setStartTime(e.target.value);
-              return;
-            }
-            setStartTime(toDateTimeLocalValue(roundToHalfHour(new Date(e.target.value))));
-          }}
-          className="mb-4 w-full rounded-lg border px-3 py-2 text-sm"
-          style={inputStyle}
-        />
+        <div className="mb-4 flex gap-2">
+          <input
+            required
+            type="date"
+            value={dateValue}
+            onChange={(e) => setDateValue(e.target.value)}
+            className="w-1/2 rounded-lg border px-3 py-2 text-sm"
+            style={inputStyle}
+          />
+          <select
+            required
+            value={timeValue}
+            onChange={(e) => setTimeValue(e.target.value)}
+            className="w-1/2 rounded-lg border px-3 py-2 text-sm"
+            style={inputStyle}
+          >
+            {HALF_HOUR_TIME_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {mode === 'edit' && (
           <>

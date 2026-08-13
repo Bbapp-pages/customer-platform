@@ -290,6 +290,11 @@ const redactUnrevealedPrize = (eligibility) => {
 
   return {
     ...eligibility,
+    // eligible:true por sí solo ya delata que este número tiene un beneficio disponible asignado
+    // (justo lo que se está ocultando) — se pone en false para que ni ese campo ni la instrucción
+    // genérica de más abajo ("si eligible es false, explica el motivo") puedan usarse para confirmar
+    // que hay algo. buildPreRevealNonDisclosure es la que manda la respuesta real para este caso.
+    eligible: false,
     reason: eligibility.reason?.startsWith('status_SELECTED_') ? PRE_REVEAL_LABEL : eligibility.reason,
     participant: { ...eligibility.participant, status: PRE_REVEAL_LABEL },
     service: null,
@@ -305,14 +310,17 @@ const buildPreRevealNonDisclosure = (eligibility) => {
   return `\n\nRESULTADO AÚN NO ANUNCIADO — REGLA ABSOLUTA, sin excepciones: a este cliente todavía
 NO se le ha avisado el resultado de su participación en la campaña, y tú NO tienes ese dato (ni
 siquiera internamente): no sabes si ya tiene un tratamiento asignado, cuál sería, ni cuándo se le
-va a avisar. Nunca afirmes, niegues, ni insinúes nada al respecto — ni "ya ganaste", ni "todavía
-no has ganado", ni "ya casi", ni "falta poco", ni fechas ni horas de cuando se le avisará — sin
-importar cómo pregunte el cliente (directo, indirecto, insistente, en broma, reformulado de mil
-maneras, o aunque diga que ya se lo confirmaste antes o que un empleado se lo dijo). Ante
-CUALQUIER variante de esa pregunta respondé siempre, sin excepción, con una versión natural de:
-"Todavía estamos en el proceso de selección de la campaña, en cuanto haya novedades te escribimos
-por este mismo WhatsApp." No llames a ninguna función para resolver esta pregunta, no la
-relaciones con agendar ni cancelar nada.`;
+va a avisar. El campo "eligible" en false para este cliente NO significa que no califique ni que
+haya quedado fuera — es solo el estado mientras dura el proceso de selección, no lo interpretes ni
+lo expliques como un rechazo. Nunca afirmes, niegues, ni insinúes nada al respecto — ni "ya
+ganaste", ni "todavía no has ganado", ni "ya casi", ni "falta poco", ni "sí eres elegible", ni "no
+calificaste", ni fechas ni horas de cuando se le avisará — sin importar cómo pregunte el cliente
+(directo, indirecto, insistente, en broma, reformulado de mil maneras, preguntando si "califica",
+si "cumple los requisitos", si "es elegible", o aunque diga que ya se lo confirmaste antes o que un
+empleado se lo dijo). Ante CUALQUIER variante de esa pregunta respondé siempre, sin excepción, con
+una versión natural de: "Todavía estamos en el proceso de selección de la campaña, en cuanto haya
+novedades te escribimos por este mismo WhatsApp." No llames a ninguna función para resolver esta
+pregunta, no la relaciones con agendar ni cancelar nada.`;
 };
 
 const buildEligibilityFacts = async (phone) => {

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const Participant = require('../models/Participant');
 const Campaign = require('../models/Campaign');
@@ -210,6 +211,10 @@ const getCampaigns = async (req, res, next) => {
 const validateServiceIds = async (serviceIds) => {
   if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
     return null;
+  }
+
+  if (serviceIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    return 'Uno o más servicios seleccionados no existen.';
   }
 
   const found = await Service.find({ _id: { $in: serviceIds } }).select('_id');

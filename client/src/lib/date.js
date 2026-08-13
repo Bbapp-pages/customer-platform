@@ -54,22 +54,40 @@ export function formatTime(date) {
   });
 }
 
-export function toDateTimeLocalValue(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
 export function toISODateOnly(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-// Las citas solo se agendan por media hora (:00/:30) — se usa junto con
-// step={1800} en el input datetime-local, que restringe el picker nativo pero
-// no evita que el navegador deje escribir cualquier minuto a mano.
+// Las citas solo se agendan por media hora (:00/:30).
 export function roundToHalfHour(date) {
   const result = new Date(date);
   const minutes = result.getMinutes();
   result.setMinutes(minutes < 30 ? 0 : 30, 0, 0);
   return result;
+}
+
+// Mismo rango que muestra la cuadrícula semanal de Agenda.jsx (8am-8pm) — un
+// <select> con estas opciones, en vez de un input de hora libre, es la única
+// forma de que sea IMPOSIBLE elegir un minuto que no sea :00/:30 (el atributo
+// step de datetime-local no lo garantiza: varios navegadores igual dejan
+// desplazar el picker nativo por cualquier minuto).
+export const HALF_HOUR_TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const totalMinutes = 8 * 60 + i * 30;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(totalMinutes / 60))}:${pad(totalMinutes % 60)}`;
+});
+
+export function toTimeSelectValue(date) {
+  const rounded = roundToHalfHour(date);
+  const pad = (n) => String(n).padStart(2, '0');
+  const value = `${pad(rounded.getHours())}:${pad(rounded.getMinutes())}`;
+
+  if (HALF_HOUR_TIME_OPTIONS.includes(value)) {
+    return value;
+  }
+
+  return value < HALF_HOUR_TIME_OPTIONS[0]
+    ? HALF_HOUR_TIME_OPTIONS[0]
+    : HALF_HOUR_TIME_OPTIONS[HALF_HOUR_TIME_OPTIONS.length - 1];
 }

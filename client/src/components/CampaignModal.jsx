@@ -7,10 +7,13 @@ const inputStyle = {
   background: 'var(--surface)',
 };
 
+// firstBookingDate se guarda como fecha sola (medianoche UTC) — hay que leerla
+// con los getters UTC, no los locales, o en cualquier zona horaria negativa
+// (como la de la clínica, UTC-6) el campo se ve un día antes de lo guardado.
 const toDateInputValue = (date) => {
   const d = new Date(date);
   const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 };
 
 export default function CampaignModal({ campaign, onClose, onSaved }) {
