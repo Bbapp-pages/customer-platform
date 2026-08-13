@@ -2,17 +2,21 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Resumen' },
-  { to: '/agenda', label: 'Agenda' },
-  { to: '/appointments', label: 'Citas' },
-  { to: '/participants', label: 'Participantes' },
-  { to: '/campaigns', label: 'Campañas' },
-  { to: '/conversations', label: 'Conversaciones' },
-  { to: '/logs', label: 'Actividad' },
+  { to: '/', label: 'Resumen', roles: ['admin'] },
+  { to: '/agenda', label: 'Agenda', roles: ['admin', 'receptionist'] },
+  { to: '/appointments', label: 'Citas', roles: ['admin'] },
+  { to: '/participants', label: 'Participantes', roles: ['admin'] },
+  { to: '/campaigns', label: 'Campañas', roles: ['admin'] },
+  { to: '/conversations', label: 'Conversaciones', roles: ['admin'] },
+  { to: '/logs', label: 'Actividad', roles: ['admin'] },
+  { to: '/usuarios', label: 'Usuarios', roles: ['admin'] },
 ];
+
+const ROLE_LABEL = { admin: 'Admin', receptionist: 'Recepcionista' };
 
 export default function Layout() {
   const { admin, logout } = useAuth();
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.roles.includes(admin?.role));
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--page)' }}>
@@ -28,7 +32,7 @@ export default function Layout() {
         </p>
 
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -52,8 +56,11 @@ export default function Layout() {
           <p className="text-sm font-medium" style={{ color: 'var(--ink)' }}>
             {admin?.name}
           </p>
-          <p className="mb-3 text-xs" style={{ color: 'var(--ink-muted)' }}>
+          <p className="text-xs" style={{ color: 'var(--ink-muted)' }}>
             {admin?.email}
+          </p>
+          <p className="mb-3 text-xs font-medium" style={{ color: 'var(--accent)' }}>
+            {ROLE_LABEL[admin?.role] || admin?.role}
           </p>
           <button
             onClick={logout}

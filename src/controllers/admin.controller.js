@@ -5,8 +5,11 @@ const Customer = require('../models/customer');
 const SystemLog = require('../models/SystemLog');
 const Conversation = require('../models/conversation');
 const Message = require('../models/message');
+const Admin = require('../models/Admin');
 const { contactParticipant } = require('../jobs/campaignFollowUp.job');
 const systemLogService = require('../services/systemLog.service');
+
+const USER_ROLES = ['admin', 'receptionist'];
 
 // Registered for populate() even though not queried directly here.
 require('../models/service');
@@ -426,6 +429,100 @@ const deleteParticipant = async (req, res, next) => {
   }
 };
 
+const getUsers = async (req, res, next) => {
+  try {
+    const users = await Admin.find({}).sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, data: users });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const createUser = async (req, res, next) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        message: 'name, email, password y role son obligatorios',
+      });
+    }
+
+    if (!USER_ROLES.includes(role)) {
+      return res.status(400).json({ success: false, message: 'Rol inválido' });
+    }
+
+    if (String(password).length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 8 caracteres.',
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await Admin.findOne({ email: normalizedEmail });
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'Ya existe una cuenta con ese correo.',
+      });
+    }
+
+    const user = await Admin.create({ name, email: normalizedEmail, password, role });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Usuario creado exitosamente',
+      data: { id: user._id, name: user.name, email: user.email, role: user.role, active: user.active },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { role, active } = req.body;
+
+    const user = await Admin.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (role !== undefined) {
+      if (!USER_ROLES.includes(role)) {
+        return res.status(400).json({ success: false, message: 'Rol inválido' });
+      }
+      user.role = role;
+    }
+
+    if (active !== undefined) {
+      if (String(user._id) === String(req.admin._id) && !active) {
+        return res.status(400).json({
+          success: false,
+          message: 'No puedes desactivar tu propia cuenta.',
+        });
+      }
+      user.active = active;
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Usuario actualizado exitosamente',
+      data: { id: user._id, name: user.name, email: user.email, role: user.role, active: user.active },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getStats,
   getAppointments,
@@ -438,4 +535,7 @@ module.exports = {
   getConversations,
   getConversationMessages,
   deleteConversation,
+  getUsers,
+  createUser,
+  updateUser,
 };

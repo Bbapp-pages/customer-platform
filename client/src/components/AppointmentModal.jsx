@@ -24,7 +24,7 @@ export default function AppointmentModal({
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerResults, setCustomerResults] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', documentId: '' });
 
   const [serviceId, setServiceId] = useState('');
   const [employeeId, setEmployeeId] = useState('');
@@ -139,12 +139,17 @@ export default function AppointmentModal({
           </p>
 
           {mode === 'edit' ? (
-            <p
+            <div
               className="rounded-lg border px-3 py-2 text-sm"
               style={{ ...inputStyle, color: 'var(--ink-secondary)' }}
             >
-              {appointment.customer?.name} · {appointment.customer?.phone}
-            </p>
+              <p className="font-medium" style={{ color: 'var(--ink)' }}>
+                {appointment.customer?.name}
+              </p>
+              <p>Cédula: {appointment.customer?.documentId || 'Sin registrar'}</p>
+              <p>Teléfono: {appointment.customer?.phone}</p>
+              <p>Correo: {appointment.customer?.email || 'Sin registrar'}</p>
+            </div>
           ) : selectedCustomer ? (
             <div
               className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
@@ -240,6 +245,15 @@ export default function AppointmentModal({
                       setNewCustomer((c) => ({ ...c, phone: e.target.value }))
                     }
                     placeholder="Teléfono"
+                    className="rounded-lg border px-3 py-2 text-sm outline-none"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={newCustomer.documentId}
+                    onChange={(e) =>
+                      setNewCustomer((c) => ({ ...c, documentId: e.target.value }))
+                    }
+                    placeholder="Cédula (opcional)"
                     className="rounded-lg border px-3 py-2 text-sm outline-none"
                     style={inputStyle}
                   />

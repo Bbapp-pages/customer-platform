@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleRoute from './components/RoleRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -10,7 +11,10 @@ import Participants from './pages/Participants';
 import Campaigns from './pages/Campaigns';
 import Logs from './pages/Logs';
 import Conversations from './pages/Conversations';
+import Users from './pages/Users';
 import PublicRegister from './pages/PublicRegister';
+
+const adminOnly = (element) => <RoleRoute roles={['admin']}>{element}</RoleRoute>;
 
 export default function App() {
   return (
@@ -27,13 +31,14 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Dashboard />} />
+        <Route index element={adminOnly(<Dashboard />)} />
         <Route path="agenda" element={<Agenda />} />
-        <Route path="appointments" element={<Appointments />} />
-        <Route path="participants" element={<Participants />} />
-        <Route path="campaigns" element={<Campaigns />} />
-        <Route path="conversations" element={<Conversations />} />
-        <Route path="logs" element={<Logs />} />
+        <Route path="appointments" element={adminOnly(<Appointments />)} />
+        <Route path="participants" element={adminOnly(<Participants />)} />
+        <Route path="campaigns" element={adminOnly(<Campaigns />)} />
+        <Route path="conversations" element={adminOnly(<Conversations />)} />
+        <Route path="logs" element={adminOnly(<Logs />)} />
+        <Route path="usuarios" element={adminOnly(<Users />)} />
       </Route>
     </Routes>
   );

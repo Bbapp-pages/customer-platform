@@ -16,6 +16,12 @@
         index: true,
         },
 
+        documentId: {
+        type: String,
+        trim: true,
+        default: '',
+        },
+
         email: {
         type: String,
         trim: true,

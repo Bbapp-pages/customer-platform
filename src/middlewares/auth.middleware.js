@@ -37,4 +37,16 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+// Debe usarse después de protect (necesita req.admin ya cargado).
+const restrictTo = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.admin.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'No tienes permiso para realizar esta acción',
+    });
+  }
+
+  return next();
+};
+
+module.exports = { protect, restrictTo };

@@ -30,7 +30,7 @@ const seedAdmin = async () => {
         name,
         email,
         password,
-        role: 'superadmin',
+        role: 'admin',
       });
 
       console.log('✓ Admin created');

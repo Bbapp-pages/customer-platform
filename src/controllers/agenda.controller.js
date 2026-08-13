@@ -30,7 +30,7 @@ const hasOverlap = async ({ employeeId, startTime, endTime, excludeId }) => {
 };
 
 const findOrCreateCustomer = async (customerInput) => {
-  const { phone, name, email } = customerInput;
+  const { phone, name, email, documentId } = customerInput;
 
   const existing = await Customer.findOne({ phone });
 
@@ -38,7 +38,7 @@ const findOrCreateCustomer = async (customerInput) => {
     return existing;
   }
 
-  return Customer.create({ name, phone, email });
+  return Customer.create({ name, phone, email, documentId });
 };
 
 const getCalendarAppointments = async (req, res, next) => {
@@ -56,7 +56,7 @@ const getCalendarAppointments = async (req, res, next) => {
       startTime: { $lt: new Date(to) },
       endTime: { $gt: new Date(from) },
     })
-      .populate('customer', 'name phone email')
+      .populate('customer', 'name phone email documentId')
       .populate('service', 'name price durationMinutes')
       .populate('employee', 'name')
       .sort({ startTime: 1 })
@@ -141,7 +141,7 @@ const createAppointment = async (req, res, next) => {
     });
 
     await appointment.populate([
-      { path: 'customer', select: 'name phone email' },
+      { path: 'customer', select: 'name phone email documentId' },
       { path: 'service', select: 'name price durationMinutes' },
       { path: 'employee', select: 'name' },
     ]);
@@ -245,7 +245,7 @@ const updateAppointment = async (req, res, next) => {
     await appointment.save();
 
     await appointment.populate([
-      { path: 'customer', select: 'name phone email' },
+      { path: 'customer', select: 'name phone email documentId' },
       { path: 'service', select: 'name price durationMinutes' },
       { path: 'employee', select: 'name' },
     ]);
@@ -297,7 +297,7 @@ const searchCustomers = async (req, res, next) => {
     const regex = new RegExp(q.trim(), 'i');
 
     const customers = await Customer.find({
-      $or: [{ name: regex }, { phone: regex }],
+      $or: [{ name: regex }, { phone: regex }, { documentId: regex }],
     })
       .limit(10)
       .sort({ name: 1 });
