@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "http://54.174.23.216/api/$1" },
+    { "source": "/api/(.*)", "destination": "https://laserchatbot.bbapp.pro/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
