@@ -10,9 +10,6 @@ const signToken = (admin) =>
     expiresIn: env.jwtExpiresIn,
   });
 
-// Limita intentos del código de acceso por IP para dificultar fuerza bruta
-// sobre un código fijo de 8 dígitos. En memoria: suficiente para esta app de
-// una sola instancia, se reinicia si el servidor se reinicia (aceptable).
 const REGISTER_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const REGISTER_ATTEMPT_LIMIT = 5;
 const registerAttempts = new Map();

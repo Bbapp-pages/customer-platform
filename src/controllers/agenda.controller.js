@@ -6,6 +6,7 @@ const { toClinicWallClock } = require('../utils/clinicTime');
 const notificationService = require('../services/notification.service');
 const { notifyAdmins } = require('../services/adminNotification.service');
 const systemLogService = require('../services/systemLog.service');
+const blockedDayService = require('../services/blockedDay.service');
 
 const MAX_RANGE_APPOINTMENTS = 1000;
 
@@ -119,6 +120,13 @@ const createAppointment = async (req, res, next) => {
     const start = new Date(startTime);
     const end = new Date(start.getTime() + service.durationMinutes * 60000);
 
+    if (await blockedDayService.isDateBlocked(toClinicWallClock(start).date)) {
+      return res.status(409).json({
+        success: false,
+        message: 'Ese día está bloqueado (no laborable). No se pueden agendar citas nuevas ahí.',
+      });
+    }
+
     const conflict = await hasOverlap({
       employeeId,
       startTime: start,
@@ -219,6 +227,22 @@ const updateAppointment = async (req, res, next) => {
     const start = startTime ? new Date(startTime) : appointment.startTime;
     const end = new Date(start.getTime() + durationMinutes * 60000);
 
+    // Solo se bloquea si de verdad se está MOVIENDO la cita a un día distinto que
+    // esté bloqueado — reagendar una cita AFECTADA por un bloqueo hacia otro día
+    // (o solo cambiarle el estado/notas sin tocar la fecha) tiene que seguir
+    // funcionando, es justo la acción que se le pide hacer al admin/recepcionista.
+    if (startTime) {
+      const newDate = toClinicWallClock(start).date;
+      const originalDate = toClinicWallClock(appointment.startTime).date;
+
+      if (newDate !== originalDate && (await blockedDayService.isDateBlocked(newDate))) {
+        return res.status(409).json({
+          success: false,
+          message: 'Ese día está bloqueado (no laborable). No se pueden mover citas ahí.',
+        });
+      }
+    }
+
     const nextEmployeeId =
       employeeId !== undefined ? employeeId : appointment.employee;
 
@@ -306,6 +330,19 @@ const getEmployees = async (req, res, next) => {
   }
 };
 
+const getBlockedDays = async (req, res, next) => {
+  try {
+    const blockedDays = await blockedDayService.listBlockedDays();
+
+    return res.status(200).json({
+      success: true,
+      data: blockedDays,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const searchCustomers = async (req, res, next) => {
   try {
     const { q } = req.query;
@@ -337,6 +374,7 @@ module.exports = {
   updateAppointment,
   getServices,
   getEmployees,
+  getBlockedDays,
   searchCustomers,
   findOrCreateCustomer,
 };

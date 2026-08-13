@@ -12,6 +12,10 @@ const systemLogService = require('../services/systemLog.service');
 const systemSettingService = require('../services/systemSetting.service');
 const customInstructionService = require('../services/customInstruction.service');
 const CustomInstruction = require('../models/CustomInstruction');
+const { toClinicWallClock } = require('../utils/clinicTime');
+const blockedDayService = require('../services/blockedDay.service');
+
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const USER_ROLES = ['admin', 'receptionist'];
 
@@ -330,6 +334,7 @@ const deleteConversation = async (req, res, next) => {
 const contactParticipantNow = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { force } = req.body;
 
     const participant = await Participant.findById(id).populate('prize.service', 'name');
 
@@ -341,6 +346,28 @@ const contactParticipantNow = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'Este participante ya fue contactado o no está en estado SELECTED.',
+      });
+    }
+
+    const isEarly = participant.revealAt && participant.revealAt > new Date();
+
+    if (isEarly && !force) {
+      const { date, time } = toClinicWallClock(participant.revealAt);
+      return res.status(400).json({
+        success: false,
+        message: `Todavía no corresponde avisarle a este participante. Se le contactará automáticamente el ${date} a las ${time} (hora de la clínica), para no delatar el resultado antes de tiempo.`,
+      });
+    }
+
+    // force=true salta el horario de revelación a propósito — solo para pruebas
+    // controladas de la IA (ej. probar el flujo post-CONTACTED sin esperar), no
+    // para uso normal. Queda registrado en SystemLog para que quede rastro de
+    // cada vez que se usó.
+    if (isEarly && force) {
+      systemLogService.logError({
+        type: 'campaign_followup',
+        message: 'Contacto manual forzado antes de revealAt (uso de prueba)',
+        meta: { participantId: String(participant._id), phone: participant.phone, by: req.admin.email },
       });
     }
 
@@ -647,6 +674,86 @@ const deleteCustomInstruction = async (req, res, next) => {
   }
 };
 
+const previewBlockedDay = async (req, res, next) => {
+  try {
+    const { date } = req.query;
+
+    if (!date || !DATE_ONLY_PATTERN.test(date)) {
+      return res.status(400).json({ success: false, message: 'date debe tener formato YYYY-MM-DD' });
+    }
+
+    const alreadyBlocked = await blockedDayService.isDateBlocked(date);
+    const affectedAppointments = await blockedDayService.getAffectedAppointments(date);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        alreadyBlocked,
+        affected: affectedAppointments.map((appointment) => ({
+          id: String(appointment._id),
+          time: toClinicWallClock(appointment.startTime).time,
+          serviceName: appointment.service?.name || 'Sin servicio',
+          customerName: appointment.customer?.name || 'Sin nombre',
+          customerPhone: appointment.customer?.phone || '—',
+          customerEmail: appointment.customer?.email || '—',
+        })),
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const createBlockedDay = async (req, res, next) => {
+  try {
+    const { date, reason } = req.body;
+
+    if (!date || !DATE_ONLY_PATTERN.test(date)) {
+      return res.status(400).json({ success: false, message: 'date debe tener formato YYYY-MM-DD' });
+    }
+
+    const result = await blockedDayService.blockDay({ date, reason, admin: req.admin });
+
+    if (result.alreadyBlocked) {
+      return res.status(409).json({ success: false, message: 'Ese día ya estaba bloqueado.' });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message:
+        result.affected.length > 0
+          ? `Día bloqueado. Se avisó a los admins y a gerencia sobre ${result.affected.length} cita(s) que hay que reagendar.`
+          : 'Día bloqueado.',
+      data: { blockedDay: result.blockedDay, affected: result.affected },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Ese día ya estaba bloqueado.' });
+    }
+    return next(error);
+  }
+};
+
+const deleteBlockedDay = async (req, res, next) => {
+  try {
+    const { date } = req.params;
+
+    if (!DATE_ONLY_PATTERN.test(date)) {
+      return res.status(400).json({ success: false, message: 'date debe tener formato YYYY-MM-DD' });
+    }
+
+    const result = await blockedDayService.unblockDay(date);
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Ese día no estaba bloqueado.' });
+    }
+
+    return res.status(200).json({ success: true, message: 'Día desbloqueado.' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getStats,
   getAppointments,
@@ -670,4 +777,7 @@ module.exports = {
   getCustomInstructions,
   createCustomInstruction,
   deleteCustomInstruction,
+  previewBlockedDay,
+  createBlockedDay,
+  deleteBlockedDay,
 };

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
 import AppointmentModal from '../components/AppointmentModal';
+import BlockDayModal from '../components/BlockDayModal';
+import { useAuth } from '../context/AuthContext';
 import {
   addDays,
   formatDayHeader,
@@ -8,6 +10,7 @@ import {
   formatWeekRange,
   isSameDay,
   startOfWeek,
+  toISODateOnly,
 } from '../lib/date';
 
 const DAY_START_HOUR = 8;
@@ -28,15 +31,24 @@ const STATUS_COLOR = {
 };
 
 export default function Agenda() {
+  const { admin } = useAuth();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalState, setModalState] = useState(null);
+  const [blockedDays, setBlockedDays] = useState([]);
+  const [blockModalDate, setBlockModalDate] = useState(null);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart]
   );
+
+  const blockedByDate = useMemo(() => {
+    const map = new Map();
+    blockedDays.forEach((b) => map.set(b.date, b));
+    return map;
+  }, [blockedDays]);
 
   const loadAppointments = () => {
     setLoading(true);
@@ -51,10 +63,28 @@ export default function Agenda() {
       .finally(() => setLoading(false));
   };
 
+  const loadBlockedDays = () => {
+    api.get('/agenda/blocked-days').then((res) => setBlockedDays(res.data.data));
+  };
+
   useEffect(() => {
     loadAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
+
+  useEffect(() => {
+    loadBlockedDays();
+  }, []);
+
+  const handleUnblock = async (dateStr) => {
+    const confirmed = window.confirm(
+      `¿Desbloquear el ${dateStr}? Ese día vuelve a estar disponible para agendar citas.`
+    );
+    if (!confirmed) return;
+
+    await api.delete(`/admin/blocked-days/${dateStr}`);
+    loadBlockedDays();
+  };
 
   const appointmentsByDay = (day) => {
     const dayAppointments = appointments
@@ -171,18 +201,45 @@ export default function Agenda() {
       >
         <div className="flex min-w-[860px]">
           <div className="w-14 shrink-0" />
-          {days.map((day) => (
-            <div
-              key={day.toISOString()}
-              className="flex-1 border-l px-2 py-2 text-center text-xs font-medium"
-              style={{
-                borderColor: 'var(--border)',
-                color: isSameDay(day, new Date()) ? 'var(--accent)' : 'var(--ink)',
-              }}
-            >
-              {formatDayHeader(day)}
-            </div>
-          ))}
+          {days.map((day) => {
+            const dateStr = toISODateOnly(day);
+            const blocked = blockedByDate.get(dateStr);
+
+            return (
+              <div
+                key={day.toISOString()}
+                className="flex-1 border-l px-2 py-2 text-center text-xs font-medium"
+                style={{
+                  borderColor: 'var(--border)',
+                  color: isSameDay(day, new Date()) ? 'var(--accent)' : 'var(--ink)',
+                }}
+              >
+                <div>{formatDayHeader(day)}</div>
+                {admin?.role === 'admin' && (
+                  blocked ? (
+                    <button
+                      type="button"
+                      onClick={() => handleUnblock(dateStr)}
+                      className="mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{ color: 'var(--status-critical)', background: 'var(--status-critical-bg)' }}
+                      title={blocked.reason || 'Día bloqueado'}
+                    >
+                      Bloqueado — desbloquear
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setBlockModalDate(dateStr)}
+                      className="mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{ color: 'var(--ink-muted)' }}
+                    >
+                      Bloquear día
+                    </button>
+                  )
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <div className="flex min-w-[860px]">
@@ -198,13 +255,25 @@ export default function Agenda() {
             ))}
           </div>
 
-          {days.map((day) => (
+          {days.map((day) => {
+            const blocked = blockedByDate.get(toISODateOnly(day));
+
+            return (
             <div
               key={day.toISOString()}
               className="relative flex-1 border-l"
               style={{ borderColor: 'var(--border)', height: GRID_HEIGHT }}
             >
-              {HOURS.map((hour) => (
+              {blocked && (
+                <div
+                  className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-medium"
+                  style={{ background: 'var(--status-critical-bg)', color: 'var(--status-critical)' }}
+                >
+                  No laborable{blocked.reason ? ` — ${blocked.reason}` : ''}
+                </div>
+              )}
+
+              {!blocked && HOURS.map((hour) => (
                 <div key={hour} style={{ height: HOUR_HEIGHT }} className="flex flex-col">
                   <button
                     type="button"
@@ -255,7 +324,8 @@ export default function Agenda() {
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -274,6 +344,18 @@ export default function Agenda() {
           onSaved={() => {
             setModalState(null);
             loadAppointments();
+          }}
+        />
+      )}
+
+      {blockModalDate && (
+        <BlockDayModal
+          date={blockModalDate}
+          dateLabel={blockModalDate}
+          onClose={() => setBlockModalDate(null)}
+          onBlocked={() => {
+            setBlockModalDate(null);
+            loadBlockedDays();
           }}
         />
       )}

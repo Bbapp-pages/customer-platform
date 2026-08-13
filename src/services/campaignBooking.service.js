@@ -12,6 +12,8 @@ const {
 const { toClinicWallClock, fromClinicWallClock, addClinicDays } = require('../utils/clinicTime');
 const notificationService = require('./notification.service');
 const systemLogService = require('./systemLog.service');
+const { computeRevealAt } = require('./campaignReveal.service');
+const blockedDayService = require('./blockedDay.service');
 
 const ELIGIBLE_STATUSES = ['SELECTED', 'CONTACTED'];
 
@@ -148,6 +150,10 @@ const getAvailableSlots = async ({ serviceCode, date, excludeAppointmentId }) =>
     return { available: false, slots: [], reason: 'closed_sunday' };
   }
 
+  if (await blockedDayService.isDateBlocked(date)) {
+    return { available: false, slots: [], reason: 'day_blocked' };
+  }
+
   const dayStart = fromClinicWallClock(date, '00:00');
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
@@ -222,6 +228,18 @@ const bookAppointment = async ({ phone, name, serviceCode, date, time }) => {
       success: false,
       error: 'not_eligible',
       message: 'Este número no tiene un beneficio disponible para agendar.',
+    };
+  }
+
+  // No se puede agendar (ni confirmar, ni descartar por "servicio equivocado") antes de que el
+  // participante haya sido contactado proactivamente — de lo contrario, un cliente que adivine o
+  // pregunte por un servicio en concreto podría sacarle al sistema cuál le tocó realmente, o hasta
+  // agendarlo sin que nunca se le avise, saltándose por completo la revelación.
+  if (eligibility.participant?.status !== 'CONTACTED') {
+    return {
+      success: false,
+      error: 'not_yet_revealed',
+      message: 'Todavía no se ha anunciado el resultado de la campaña para este número. En cuanto haya novedades se le contacta por este mismo WhatsApp.',
     };
   }
 
@@ -414,6 +432,7 @@ const registerParticipantViaChat = async ({ phone, name, documentId, email }) =>
   }
 
   const service = activeServices[Math.floor(Math.random() * activeServices.length)];
+  const now = new Date();
 
   const participant = await Participant.create({
     name,
@@ -423,7 +442,8 @@ const registerParticipantViaChat = async ({ phone, name, documentId, email }) =>
     campaign: campaign._id,
     status: 'SELECTED',
     prize: { service: service._id, status: 'AVAILABLE' },
-    selectedAt: new Date(),
+    selectedAt: now,
+    revealAt: computeRevealAt(now),
   });
 
   notificationService

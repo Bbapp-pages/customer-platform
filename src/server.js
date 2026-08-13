@@ -9,7 +9,10 @@
   const startServer = async () => {
     await connectDatabase();
 
-    cron.schedule('*/15 * * * *', () => {
+    // Cada minuto (no cada 15) para que el envío escalonado por lotes de
+    // campaignFollowUp.job.js reparta a los participantes en varios minutos
+    // reales tras la revelación de las 5pm/9am, en vez de agruparlos.
+    cron.schedule('* * * * *', () => {
       runCampaignFollowUp().catch((error) =>
         console.error('[campaignFollowUp] Error inesperado:', error)
       );

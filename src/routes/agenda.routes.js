@@ -18,5 +18,6 @@ router.patch('/appointments/:id', agendaController.updateAppointment);
 router.get('/services', agendaController.getServices);
 router.get('/employees', agendaController.getEmployees);
 router.get('/customers', agendaController.searchCustomers);
+router.get('/blocked-days', agendaController.getBlockedDays);
 
 module.exports = router;

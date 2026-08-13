@@ -78,6 +78,14 @@
         default: null,
         },
 
+        // Momento exacto (calculado una sola vez al registrarse, ver
+        // campaignReveal.service.js) en que se le avisará el resultado. El cron
+        // de campaignFollowUp.job.js nunca contacta antes de esta fecha/hora.
+        revealAt: {
+        type: Date,
+        default: null,
+        },
+
         skinConcern: {
         type: String,
         enum: [

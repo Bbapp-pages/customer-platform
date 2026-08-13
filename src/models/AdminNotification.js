@@ -4,7 +4,7 @@ const adminNotificationSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['appointment_created', 'appointment_modified'],
+      enum: ['appointment_created', 'appointment_modified', 'day_blocked'],
       required: true,
     },
 

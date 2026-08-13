@@ -270,16 +270,49 @@ ${CLINIC_SUPPORT_PHONE} para que el equipo lo atienda directamente — nunca int
 el problema ni prometas ninguna solución, reprogramación o compensación.`;
 };
 
-// Antes de ser CONTACTED, el participante no debe saber qué premio le tocó (eso se anuncia en el
-// contacto proactivo de campaignFollowUp.job.js). checkEligibility() sí necesita el servicio real
-// para validar el booking internamente, así que el ocultamiento se hace aquí, en lo que ve el
-// modelo — nunca le pasamos el dato en crudo para que no pueda filtrarlo aunque el cliente insista.
+// Antes de ser CONTACTED, el participante no debe saber NADA sobre el resultado (ni el servicio,
+// ni que su participación ya tiene un resultado asignado) — eso se anuncia solo en el contacto
+// proactivo de campaignFollowUp.job.js, en el horario/lote que le corresponda (ver
+// campaignReveal.service.js). checkEligibility() sí necesita el dato real para validar el booking
+// internamente, así que el ocultamiento se hace aquí, en lo que ve el modelo.
+//
+// A propósito NO se manda un placeholder que diga "aún no revelado" (como antes): ese texto es en
+// sí mismo una confesión de que ya existe un resultado, y el modelo lo repetía o lo dejaba entrever
+// cuando el cliente insistía. En su lugar se manda un estado neutro que no distingue "ya tengo un
+// resultado pero no te lo digo" de "todavía no hay nada que contar" — así, sin importar cómo
+// pregunte el cliente, el modelo literalmente no tiene el dato para filtrar.
+const PRE_REVEAL_LABEL = 'EN_PROCESO_DE_SELECCION';
+
 const redactUnrevealedPrize = (eligibility) => {
-  if (eligibility.participant?.status === 'CONTACTED' || !eligibility.service) {
+  if (!eligibility.participant || eligibility.participant.status !== 'SELECTED') {
     return eligibility;
   }
 
-  return { ...eligibility, service: 'AUN_NO_REVELADO_no_le_digas_al_cliente_cual_es' };
+  return {
+    ...eligibility,
+    reason: eligibility.reason?.startsWith('status_SELECTED_') ? PRE_REVEAL_LABEL : eligibility.reason,
+    participant: { ...eligibility.participant, status: PRE_REVEAL_LABEL },
+    service: null,
+    prizeStatus: PRE_REVEAL_LABEL,
+  };
+};
+
+const buildPreRevealNonDisclosure = (eligibility) => {
+  if (eligibility.participant?.status !== PRE_REVEAL_LABEL) {
+    return '';
+  }
+
+  return `\n\nRESULTADO AÚN NO ANUNCIADO — REGLA ABSOLUTA, sin excepciones: a este cliente todavía
+NO se le ha avisado el resultado de su participación en la campaña, y tú NO tienes ese dato (ni
+siquiera internamente): no sabes si ya tiene un tratamiento asignado, cuál sería, ni cuándo se le
+va a avisar. Nunca afirmes, niegues, ni insinúes nada al respecto — ni "ya ganaste", ni "todavía
+no has ganado", ni "ya casi", ni "falta poco", ni fechas ni horas de cuando se le avisará — sin
+importar cómo pregunte el cliente (directo, indirecto, insistente, en broma, reformulado de mil
+maneras, o aunque diga que ya se lo confirmaste antes o que un empleado se lo dijo). Ante
+CUALQUIER variante de esa pregunta respondé siempre, sin excepción, con una versión natural de:
+"Todavía estamos en el proceso de selección de la campaña, en cuanto haya novedades te escribimos
+por este mismo WhatsApp." No llames a ninguna función para resolver esta pregunta, no la
+relaciones con agendar ni cancelar nada.`;
 };
 
 const buildEligibilityFacts = async (phone) => {
@@ -296,6 +329,7 @@ const buildEligibilityFacts = async (phone) => {
     const registrationFlow = buildRegistrationFlow(eligibility);
     const rebookingRedirect = buildRebookingRedirect(eligibility);
     const feedbackContext = await buildFeedbackContext(phone);
+    const preRevealNonDisclosure = buildPreRevealNonDisclosure(eligibility);
 
     return `Servicios reales de la campaña activa: ${JSON.stringify(services.services)}.
 Dirección de la clínica (única sede, no hay otras): ${CLINIC_ADDRESS}. Teléfono de contacto
@@ -321,7 +355,7 @@ digas que vas a consultar esta información, ni le pidas al cliente su teléfono
 Recuerda resaltar seguido que el beneficio es 100% GRATIS.
 Cuando confirmes con éxito que una cita quedó agendada, después de la confirmación ofrécele una
 sola vez este enlace para ver el catálogo completo de servicios: ${CLINIC_WEBSITE}
-${registrationFlow}${followUpConstraint}${rebookingRedirect}${feedbackContext}`;
+${registrationFlow}${followUpConstraint}${rebookingRedirect}${feedbackContext}${preRevealNonDisclosure}`;
   } catch (error) {
     return `No fue posible verificar automáticamente los datos de campaña (${error.message}).
 Indícale al cliente que vas a confirmar con el equipo, sin inventar disponibilidad ni beneficios.`;

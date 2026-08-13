@@ -14,6 +14,19 @@ const STATUSES = [
   'EXPIRED',
 ];
 
+const formatRevealAt = (revealAt) => {
+  if (!revealAt) return '—';
+
+  return new Intl.DateTimeFormat('es-CR', {
+    timeZone: 'America/Costa_Rica',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(revealAt));
+};
+
 const SKIN_CONCERN_LABELS = {
   MANCHAS_PIGMENTACION: 'Manchas y pigmentación',
   CICATRICES_ACNE: 'Cicatrices de acné',
@@ -96,10 +109,26 @@ export default function Participants() {
 
   const handleContactNow = async (participant) => {
     setMenuOpenId(null);
+
+    const isEarly = participant.revealAt && new Date(participant.revealAt) > new Date();
+    let force = false;
+
+    if (isEarly) {
+      const confirmed = window.confirm(
+        `SOLO PARA PRUEBAS: a ${participant.name} todavía no le corresponde saber el resultado ` +
+          `(se le avisaría automáticamente el ${formatRevealAt(participant.revealAt)}). ` +
+          `Si continúas, se le va a revelar el resultado ANTES de tiempo — úsalo únicamente para probar la IA, nunca con un cliente real. ¿Confirmas?`
+      );
+      if (!confirmed) {
+        return;
+      }
+      force = true;
+    }
+
     setUpdatingId(participant._id);
 
     try {
-      await api.post(`/admin/participants/${participant._id}/contact-now`);
+      await api.post(`/admin/participants/${participant._id}/contact-now`, { force });
       await loadParticipants();
     } catch (err) {
       window.alert(
@@ -193,6 +222,7 @@ export default function Participants() {
               <th className="px-4 py-3 font-medium">Campaña</th>
               <th className="px-4 py-3 font-medium">Premio</th>
               <th className="px-4 py-3 font-medium">Interés</th>
+              <th className="px-4 py-3 font-medium">Se revela</th>
               <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
@@ -201,7 +231,7 @@ export default function Participants() {
             {!loading && participants.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-6 text-center"
                   style={{ color: 'var(--ink-muted)' }}
                 >
@@ -229,6 +259,9 @@ export default function Participants() {
                 </td>
                 <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
                   {SKIN_CONCERN_LABELS[participant.skinConcern] || '—'}
+                </td>
+                <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
+                  {participant.contactedAt ? '—' : formatRevealAt(participant.revealAt)}
                 </td>
                 <td className="px-4 py-3">
                   <select

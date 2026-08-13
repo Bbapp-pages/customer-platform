@@ -36,4 +36,8 @@ router.get('/custom-instructions', adminController.getCustomInstructions);
 router.post('/custom-instructions', adminController.createCustomInstruction);
 router.delete('/custom-instructions/:id', adminController.deleteCustomInstruction);
 
+router.get('/blocked-days/preview', adminController.previewBlockedDay);
+router.post('/blocked-days', adminController.createBlockedDay);
+router.delete('/blocked-days/:date', adminController.deleteBlockedDay);
+
 module.exports = router;

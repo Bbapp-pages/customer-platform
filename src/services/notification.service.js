@@ -2,6 +2,15 @@ const resendProvider = require('../integrations/email/resend.provider');
 const env = require('../config/env');
 const { CLINIC_NAME, CLINIC_ADDRESS, CLINIC_WEBSITE } = require('../config/campaignSchedule.constants');
 
+const escapeHtml = (value) =>
+  String(value || '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+
 const buildMapsLink = (address) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
@@ -228,4 +237,72 @@ const sendDailyPatientReport = async ({ to, date, appointments }) => {
   });
 };
 
-module.exports = { sendAppointmentConfirmation, sendRegistrationThankYou, sendDailyPatientReport };
+const buildDayBlockedReportHtml = ({ date, reason, appointments }) => {
+  const rows = appointments
+    .map(
+      (appointment) => `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.time}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.serviceName}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.customerName}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.customerPhone}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.customerEmail}</td>
+          </tr>`
+    )
+    .join('');
+
+  return `
+  <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, Arial, sans-serif; color: #1a1a1a;">
+    <div style="padding: 24px 24px 0;">
+      <p style="margin: 0; font-size: 13px; letter-spacing: 1px; font-weight: 600; color: #6b7280; text-transform: uppercase;">
+        ${CLINIC_NAME}
+      </p>
+      <h1 style="margin: 8px 0 0; font-size: 22px;">Día bloqueado — hay que reagendar</h1>
+      <p style="margin: 4px 0 0; font-size: 14px; color: #6b7280;">${date}${reason ? ` — ${escapeHtml(reason)}` : ''}</p>
+    </div>
+
+    <div style="padding: 16px 24px;">
+      <div style="border: 1px solid #fecaca; background: #fef2f2; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <p style="margin: 0; font-size: 14px; color: #991b1b;">
+          Este día se marcó como no laborable y ya tenía ${appointments.length}
+          ${appointments.length === 1 ? 'cita agendada' : 'citas agendadas'}. Hay que contactar
+          manualmente a cada paciente de la lista abajo para reagendar su cita.
+        </p>
+      </div>
+
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;">
+        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Hora</th>
+              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Procedimiento</th>
+              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Paciente</th>
+              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Teléfono</th>
+              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Correo</th>
+            </tr>
+          </thead>
+          <tbody>${rows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+`;
+};
+
+const sendDayBlockedReport = async ({ to, date, reason, appointments }) => {
+  const html = buildDayBlockedReportHtml({ date, reason, appointments });
+
+  return resendProvider.sendMail({
+    to,
+    subject: `Día bloqueado (${date}) — reagendar ${appointments.length} cita(s)`,
+    html,
+  });
+};
+
+module.exports = {
+  sendAppointmentConfirmation,
+  sendRegistrationThankYou,
+  sendDailyPatientReport,
+  sendDayBlockedReport,
+};
