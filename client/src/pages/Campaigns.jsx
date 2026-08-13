@@ -1,25 +1,64 @@
 import { useEffect, useState } from 'react';
 import api from '../api/client';
+import CampaignModal from '../components/CampaignModal';
 
 export default function Campaigns() {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [modalCampaign, setModalCampaign] = useState(undefined);
+  const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    api
+  const loadCampaigns = () => {
+    setLoading(true);
+    return api
       .get('/admin/campaigns')
       .then((res) => setCampaigns(res.data.data))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadCampaigns();
   }, []);
+
+  const handleDelete = async (campaign) => {
+    const confirmed = window.confirm(
+      `¿Seguro que quieres eliminar la campaña "${campaign.name}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(campaign._id);
+
+    try {
+      await api.delete(`/admin/campaigns/${campaign._id}`);
+      await loadCampaigns();
+    } catch (err) {
+      window.alert(err.response?.data?.message || 'No se pudo eliminar la campaña');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold" style={{ color: 'var(--ink)' }}>
-        Campañas
-      </h1>
-      <p className="mt-1 mb-6 text-sm" style={{ color: 'var(--ink-secondary)' }}>
-        Campañas promocionales configuradas.
-      </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold" style={{ color: 'var(--ink)' }}>
+            Campañas
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--ink-secondary)' }}>
+            Campañas promocionales configuradas.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setModalCampaign(null)}
+          className="rounded-lg px-3 py-2 text-sm font-medium text-white"
+          style={{ background: 'var(--accent)' }}
+        >
+          + Nueva campaña
+        </button>
+      </div>
 
       {!loading && campaigns.length === 0 && (
         <p style={{ color: 'var(--ink-muted)' }}>No hay campañas todavía.</p>
@@ -71,9 +110,40 @@ export default function Campaigns() {
                 </span>
               ))}
             </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setModalCampaign(campaign)}
+                className="flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                style={{ borderColor: 'var(--border)', color: 'var(--ink-secondary)' }}
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                disabled={deletingId === campaign._id}
+                onClick={() => handleDelete(campaign)}
+                className="flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                style={{ borderColor: 'var(--status-critical)', color: 'var(--status-critical)' }}
+              >
+                Eliminar
+              </button>
+            </div>
           </div>
         ))}
       </div>
+
+      {modalCampaign !== undefined && (
+        <CampaignModal
+          campaign={modalCampaign}
+          onClose={() => setModalCampaign(undefined)}
+          onSaved={() => {
+            setModalCampaign(undefined);
+            loadCampaigns();
+          }}
+        />
+      )}
     </div>
   );
 }

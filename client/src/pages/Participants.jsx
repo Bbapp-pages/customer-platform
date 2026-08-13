@@ -218,7 +218,9 @@ export default function Participants() {
           <thead>
             <tr style={{ color: 'var(--ink-muted)' }}>
               <th className="px-4 py-3 font-medium">Nombre</th>
+              <th className="px-4 py-3 font-medium">Cédula</th>
               <th className="px-4 py-3 font-medium">Teléfono</th>
+              <th className="px-4 py-3 font-medium">Correo</th>
               <th className="px-4 py-3 font-medium">Campaña</th>
               <th className="px-4 py-3 font-medium">Premio</th>
               <th className="px-4 py-3 font-medium">Interés</th>
@@ -231,7 +233,7 @@ export default function Participants() {
             {!loading && participants.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={10}
                   className="px-4 py-6 text-center"
                   style={{ color: 'var(--ink-muted)' }}
                 >
@@ -249,7 +251,13 @@ export default function Participants() {
                   {participant.name}
                 </td>
                 <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
+                  {participant.documentId || '—'}
+                </td>
+                <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
                   {participant.phone}
+                </td>
+                <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
+                  {participant.email || '—'}
                 </td>
                 <td className="px-4 py-3" style={{ color: 'var(--ink-secondary)' }}>
                   {participant.campaign?.name || '—'}

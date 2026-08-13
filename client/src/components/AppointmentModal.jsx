@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api/client';
-import { toDateTimeLocalValue } from '../lib/date';
+import { toDateTimeLocalValue, roundToHalfHour } from '../lib/date';
 
 const STATUSES = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
 
@@ -313,8 +313,15 @@ export default function AppointmentModal({
         <input
           required
           type="datetime-local"
+          step={1800}
           value={startTime}
-          onChange={(e) => setStartTime(e.target.value)}
+          onChange={(e) => {
+            if (!e.target.value) {
+              setStartTime(e.target.value);
+              return;
+            }
+            setStartTime(toDateTimeLocalValue(roundToHalfHour(new Date(e.target.value))));
+          }}
           className="mb-4 w-full rounded-lg border px-3 py-2 text-sm"
           style={inputStyle}
         />

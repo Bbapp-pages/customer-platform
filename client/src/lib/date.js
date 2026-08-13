@@ -63,3 +63,13 @@ export function toISODateOnly(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
+
+// Las citas solo se agendan por media hora (:00/:30) — se usa junto con
+// step={1800} en el input datetime-local, que restringe el picker nativo pero
+// no evita que el navegador deje escribir cualquier minuto a mano.
+export function roundToHalfHour(date) {
+  const result = new Date(date);
+  const minutes = result.getMinutes();
+  result.setMinutes(minutes < 30 ? 0 : 30, 0, 0);
+  return result;
+}

@@ -19,8 +19,8 @@ const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const USER_ROLES = ['admin', 'receptionist'];
 
+const Service = require('../models/service');
 // Registered for populate() even though not queried directly here.
-require('../models/service');
 require('../models/Employee');
 
 const parsePagination = (req) => {
@@ -197,6 +197,143 @@ const getCampaigns = async (req, res, next) => {
       success: true,
       data: campaigns,
     });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// Service.services guarda referencias sueltas (sin validación de existencia a
+// nivel de Mongoose) — si se guardara un id que no corresponde a ningún
+// Service real, listServices()/getAvailableSlots() se caerían más adelante al
+// hacer .filter(s => s.active) sobre un populate que devuelve null. Se valida
+// aquí, en el único lugar donde un admin puede meter esos ids.
+const validateServiceIds = async (serviceIds) => {
+  if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
+    return null;
+  }
+
+  const found = await Service.find({ _id: { $in: serviceIds } }).select('_id');
+
+  if (found.length !== new Set(serviceIds).size) {
+    return 'Uno o más servicios seleccionados no existen.';
+  }
+
+  return null;
+};
+
+// El resto del sistema (getActiveCampaign, checkEligibility, etc.) asume que
+// hay como mucho UNA campaña activa a la vez — si hubiera dos, cuál se usa
+// para elegibilidad/horarios quedaría a la suerte de qué orden devuelva Mongo.
+// Se fuerza esa invariante aquí: activar una campaña desactiva todas las demás.
+const deactivateOtherCampaigns = async (exceptId) =>
+  Campaign.updateMany(exceptId ? { _id: { $ne: exceptId } } : {}, { active: false });
+
+const createCampaign = async (req, res, next) => {
+  try {
+    const { name, description, firstBookingDate, active, services } = req.body;
+
+    if (!name || !firstBookingDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'name y firstBookingDate son obligatorios',
+      });
+    }
+
+    const serviceError = await validateServiceIds(services);
+    if (serviceError) {
+      return res.status(400).json({ success: false, message: serviceError });
+    }
+
+    const isActive = active !== false;
+    if (isActive) {
+      await deactivateOtherCampaigns(null);
+    }
+
+    const campaign = await Campaign.create({
+      name,
+      description: description || '',
+      firstBookingDate,
+      active: isActive,
+      services: services ? [...new Set(services)] : [],
+    });
+
+    await campaign.populate('services', 'name code');
+
+    return res.status(201).json({
+      success: true,
+      message: 'Campaña creada exitosamente',
+      data: campaign,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateCampaign = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, description, firstBookingDate, active, services } = req.body;
+
+    const campaign = await Campaign.findById(id);
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found' });
+    }
+
+    if (services !== undefined) {
+      const serviceError = await validateServiceIds(services);
+      if (serviceError) {
+        return res.status(400).json({ success: false, message: serviceError });
+      }
+      campaign.services = [...new Set(services)];
+    }
+
+    if (name !== undefined) campaign.name = name;
+    if (description !== undefined) campaign.description = description;
+    if (firstBookingDate !== undefined) campaign.firstBookingDate = firstBookingDate;
+
+    if (active !== undefined) {
+      campaign.active = active;
+      if (active) {
+        await deactivateOtherCampaigns(campaign._id);
+      }
+    }
+
+    await campaign.save();
+    await campaign.populate('services', 'name code');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Campaña actualizada exitosamente',
+      data: campaign,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const deleteCampaign = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const campaign = await Campaign.findById(id);
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found' });
+    }
+
+    const hasParticipants = await Participant.exists({ campaign: id });
+
+    if (hasParticipants) {
+      return res.status(409).json({
+        success: false,
+        message: 'Esta campaña ya tiene participantes registrados, no se puede eliminar. Desactívala en su lugar.',
+      });
+    }
+
+    await Campaign.deleteOne({ _id: id });
+
+    return res.status(200).json({ success: true, message: 'Campaña eliminada exitosamente' });
   } catch (error) {
     return next(error);
   }
@@ -780,4 +917,7 @@ module.exports = {
   previewBlockedDay,
   createBlockedDay,
   deleteBlockedDay,
+  createCampaign,
+  updateCampaign,
+  deleteCampaign,
 };
