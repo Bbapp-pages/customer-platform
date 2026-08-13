@@ -45,6 +45,10 @@
     adminSeedPassword: process.env.ADMIN_SEED_PASSWORD,
 
     adminSignupCode: process.env.ADMIN_SIGNUP_CODE,
+
+    receptionistSignupCode: process.env.RECEPTIONIST_SIGNUP_CODE,
+
+    gerenciaEmail: process.env.GERENCIA_EMAIL || 'Gerencia@massaludlatam.com',
     };
 
     module.exports = env;

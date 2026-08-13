@@ -164,4 +164,68 @@ const sendAppointmentConfirmation = async ({
   });
 };
 
-module.exports = { sendAppointmentConfirmation, sendRegistrationThankYou };
+const buildDailyPatientReportHtml = ({ date, appointments }) => {
+  const rows = appointments
+    .map(
+      (appointment) => `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.time}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.serviceName}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.customerName}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.customerPhone}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${appointment.customerEmail}</td>
+          </tr>`
+    )
+    .join('');
+
+  const body =
+    appointments.length === 0
+      ? `
+      <p style="margin: 0; font-size: 14px; color: #374151;">
+        No hay citas programadas para ese día.
+      </p>`
+      : `
+      <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Hora</th>
+            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Procedimiento</th>
+            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Paciente</th>
+            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Teléfono</th>
+            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280;">Correo</th>
+          </tr>
+        </thead>
+        <tbody>${rows}
+        </tbody>
+      </table>`;
+
+  return `
+  <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, Arial, sans-serif; color: #1a1a1a;">
+    <div style="padding: 24px 24px 0;">
+      <p style="margin: 0; font-size: 13px; letter-spacing: 1px; font-weight: 600; color: #6b7280; text-transform: uppercase;">
+        ${CLINIC_NAME}
+      </p>
+      <h1 style="margin: 8px 0 0; font-size: 22px;">Citas de mañana</h1>
+      <p style="margin: 4px 0 0; font-size: 14px; color: #6b7280;">${date}</p>
+    </div>
+
+    <div style="padding: 16px 24px;">
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;">
+        ${body}
+      </div>
+    </div>
+  </div>
+`;
+};
+
+const sendDailyPatientReport = async ({ to, date, appointments }) => {
+  const html = buildDailyPatientReportHtml({ date, appointments });
+
+  return resendProvider.sendMail({
+    to,
+    subject: `Citas de mañana — ${date}`,
+    html,
+  });
+};
+
+module.exports = { sendAppointmentConfirmation, sendRegistrationThankYou, sendDailyPatientReport };

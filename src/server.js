@@ -4,6 +4,7 @@
   const connectDatabase = require('./config/database');
   const { runCampaignFollowUp } = require('./jobs/campaignFollowUp.job');
   const { runAppointmentLifecycle } = require('./jobs/appointmentLifecycle.job');
+  const { runDailyPatientReport } = require('./jobs/dailyPatientReport.job');
 
   const startServer = async () => {
     await connectDatabase();
@@ -19,6 +20,12 @@
         console.error('[appointmentLifecycle] Error inesperado:', error)
       );
     });
+
+    cron.schedule('30 19 * * *', () => {
+      runDailyPatientReport().catch((error) =>
+        console.error('[dailyPatientReport] Error inesperado:', error)
+      );
+    }, { timezone: 'America/Costa_Rica' });
 
     app.listen(env.port, () => {
       console.log(`

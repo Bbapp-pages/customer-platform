@@ -30,11 +30,11 @@ const isRateLimited = (ip) => {
   return entry.count > REGISTER_ATTEMPT_LIMIT;
 };
 
-const matchesSignupCode = (candidate) => {
-  const expected = String(env.adminSignupCode || '');
+const codeMatches = (candidate, expectedCode) => {
+  const expected = String(expectedCode || '');
   const given = String(candidate || '');
 
-  if (given.length !== expected.length) {
+  if (!expected || given.length !== expected.length) {
     return false;
   }
 
@@ -112,7 +112,14 @@ const register = async (req, res, next) => {
       });
     }
 
-    if (!matchesSignupCode(code)) {
+    let role = null;
+    if (codeMatches(code, env.adminSignupCode)) {
+      role = 'admin';
+    } else if (codeMatches(code, env.receptionistSignupCode)) {
+      role = 'receptionist';
+    }
+
+    if (!role) {
       systemLogService.logError({
         type: 'auth',
         message: 'Intento de registro con código de acceso inválido',
@@ -146,7 +153,7 @@ const register = async (req, res, next) => {
       name,
       email: normalizedEmail,
       password,
-      role: 'admin',
+      role,
     });
 
     const token = signToken(admin);

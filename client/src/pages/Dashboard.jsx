@@ -2,8 +2,18 @@ import { useEffect, useState } from 'react';
 import api from '../api/client';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
+import { useAuth } from '../context/AuthContext';
+import { ROLE_LABEL } from '../components/Layout';
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Buenos días';
+  if (hour < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+};
 
 export default function Dashboard() {
+  const { admin } = useAuth();
   const [stats, setStats] = useState(null);
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [error, setError] = useState('');
@@ -58,8 +68,11 @@ export default function Dashboard() {
   return (
     <div>
       <h1 className="text-2xl font-semibold" style={{ color: 'var(--ink)' }}>
-        Resumen
+        {getGreeting()}, {admin?.name}
       </h1>
+      <p className="mt-1 text-sm" style={{ color: 'var(--ink-secondary)' }}>
+        {ROLE_LABEL[admin?.role] || admin?.role}
+      </p>
       <p className="mt-1 mb-6 text-sm" style={{ color: 'var(--ink-secondary)' }}>
         Estado general de citas, participantes y campañas.
       </p>

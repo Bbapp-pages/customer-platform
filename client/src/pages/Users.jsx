@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import UserModal from '../components/UserModal';
-
-const ROLE_LABEL = { admin: 'Admin', receptionist: 'Recepcionista' };
+import { ROLE_LABEL } from '../components/Layout';
 
 export default function Users() {
   const { admin: currentAdmin } = useAuth();

@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { to: '/sistema', label: 'Sistema', roles: ['admin'] },
 ];
 
-const ROLE_LABEL = { admin: 'Admin', receptionist: 'Recepcionista' };
+export const ROLE_LABEL = { admin: 'Admin', receptionist: 'Recepcionista' };
 
 export default function Layout() {
   const { admin, logout } = useAuth();

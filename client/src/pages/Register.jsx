@@ -41,10 +41,10 @@ export default function Register() {
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
         <h1 className="text-xl font-semibold" style={{ color: 'var(--ink)' }}>
-          Crear cuenta de administrador
+          Crear cuenta
         </h1>
         <p className="mt-1 mb-6 text-sm" style={{ color: 'var(--ink-secondary)' }}>
-          Necesitas el código de acceso del equipo para crear una cuenta.
+          Necesitas el código de acceso que te dieron — el tipo de cuenta se asigna según el código.
         </p>
 
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--ink)' }}>
